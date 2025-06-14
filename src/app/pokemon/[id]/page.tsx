@@ -170,7 +170,7 @@ function PokemonDetailPageContent() {
     return (
       <div className="container mx-auto px-4 py-8 text-center max-w-3xl">
         <p className="text-xl text-destructive mb-4">{error}</p>
-        <Link href={backLinkHref} passHref legacyBehavior>
+        <Link href={backLinkHref}>
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Gallery
           </Button>
@@ -183,7 +183,7 @@ function PokemonDetailPageContent() {
     return ( 
       <div className="container mx-auto px-4 py-8 text-center">
         <p>Pokémon data not available.</p>
-         <Link href={backLinkHref} passHref legacyBehavior>
+         <Link href={backLinkHref}>
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Gallery
           </Button>
@@ -194,7 +194,7 @@ function PokemonDetailPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl"> {/* Increased max-width for evolution chain */}
-      <Link href={backLinkHref} passHref legacyBehavior>
+      <Link href={backLinkHref}>
         <Button variant="outline" className="mb-6 group">
           <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Gallery
         </Button>
@@ -268,8 +268,6 @@ function PokemonDetailPageContent() {
       )}
 
       {!isEvolutionChainLoading && evolutionChain.length > 0 && (
-         // Only show section if there are evolutions (could be > 1 if current Pokémon is part of chain)
-         // Or if you always want to show the current Pokémon as part of its "chain" (even if solo), use evolutionChain.length > 0
         <div className="mt-8">
           <h3 className="text-2xl md:text-3xl font-semibold mb-6 font-headline text-foreground flex items-center">
              <Users className="w-6 h-6 mr-2 text-accent" /> Evolution Chain
@@ -299,4 +297,3 @@ export default function PokemonDetailPage() {
     </Suspense>
   );
 }
-

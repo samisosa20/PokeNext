@@ -16,38 +16,36 @@ const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, currentSearchTerm = 
   const linkHref = `/pokemon/${pokemon.id}?searchTerm=${encodeURIComponent(currentSearchTerm)}&searchCriteria=${currentSearchCriteria}`;
   
   return (
-    <Link href={linkHref} passHref legacyBehavior>
-      <a className="block group">
-        <Card className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full">
-          <CardHeader className="p-4 w-full">
-            <div className="relative w-32 h-32 md:w-40 md:h-40 mx-auto mb-2">
-              <Image
-                src={pokemon.imageUrl}
-                alt={pokemon.name}
-                layout="fill"
-                objectFit="contain"
-                className="transition-transform duration-300 group-hover:scale-105"
-                unoptimized={pokemon.imageUrl.startsWith('https://placehold.co')} 
-                data-ai-hint={pokemon.imageUrl.startsWith('https://placehold.co') ? 'pokemon character' : undefined}
-              />
-            </div>
-            <CardTitle className="font-headline text-xl md:text-2xl">{pokemon.name}</CardTitle>
-            <CardDescription className="text-sm">
-              ID: #{String(pokemon.id).padStart(3, '0')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 w-full flex flex-col flex-grow justify-end">
-            <div className="flex justify-center space-x-2 mb-3">
-              {pokemon.types.map((type) => (
-                <PokemonTypeBadge key={type} type={type} size="sm" />
-              ))}
-            </div>
-            <Badge variant="secondary" className="font-body text-xs">
-              {pokemon.generation}
-            </Badge>
-          </CardContent>
-        </Card>
-      </a>
+    <Link href={linkHref} className="block group">
+      <Card className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full">
+        <CardHeader className="p-4 w-full">
+          <div className="relative w-32 h-32 md:w-40 md:h-40 mx-auto mb-2">
+            <Image
+              src={pokemon.imageUrl}
+              alt={pokemon.name}
+              layout="fill"
+              objectFit="contain"
+              className="transition-transform duration-300 group-hover:scale-105"
+              unoptimized={pokemon.imageUrl.startsWith('https://placehold.co')} 
+              data-ai-hint={pokemon.imageUrl.startsWith('https://placehold.co') ? 'pokemon character' : undefined}
+            />
+          </div>
+          <CardTitle className="font-headline text-xl md:text-2xl">{pokemon.name}</CardTitle>
+          <CardDescription className="text-sm">
+            ID: #{String(pokemon.id).padStart(3, '0')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 pt-0 w-full flex flex-col flex-grow justify-end">
+          <div className="flex justify-center space-x-2 mb-3">
+            {pokemon.types.map((type) => (
+              <PokemonTypeBadge key={type} type={type} size="sm" />
+            ))}
+          </div>
+          <Badge variant="secondary" className="font-body text-xs">
+            {pokemon.generation}
+          </Badge>
+        </CardContent>
+      </Card>
     </Link>
   );
 };
