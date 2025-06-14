@@ -15,7 +15,7 @@ interface PokemonCardProps {
 }
 
 const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, currentSearchTerm = '', currentSearchCriteria = 'name', isCurrentPokemonInChain = false }) => {
-  const linkHref = `/pokemon/${pokemon.id}?searchTerm=${encodeURIComponent(currentSearchTerm)}&searchCriteria=${currentSearchCriteria}`;
+  const linkHref = `/pokemon/${pokemon.id}?searchTerm=${encodeURIComponent(currentSearchTerm)}&searchCriteria=${encodeURIComponent(currentSearchCriteria)}`;
   
   return (
     <Link href={linkHref} className="block group">
