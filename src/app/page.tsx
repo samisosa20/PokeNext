@@ -14,19 +14,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from '@/hooks/use-debounce';
 import { Search, RotateCcw, ListFilter } from 'lucide-react';
 
-const POKEMON_FETCH_LIMIT = 151;
+const POKEMON_FETCH_LIMIT = 650; // Updated limit
 type SearchCriteria = 'name' | 'type' | 'generation' | 'id';
 
+interface HomePageContentProps {
+  initialAllPokemon: AppPokemon[];
+}
 
-function HomePageContent() {
+function HomePageContent({ initialAllPokemon }: HomePageContentProps) {
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get('searchTerm') || '';
   const initialSearchCriteria = (searchParams.get('searchCriteria') as SearchCriteria | null) || 'name';
 
-  const [allPokemon, setAllPokemon] = useState<AppPokemon[]>([]);
+  const [allPokemon, setAllPokemon] = useState<AppPokemon[]>(initialAllPokemon);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>(initialSearchCriteria);
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const [evolutionSearchResults, setEvolutionSearchResults] = useState<AppPokemon[]>([]);
@@ -34,36 +36,18 @@ function HomePageContent() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  const fetchInitialPokemon = async () => {
-    setIsLoading(true);
-    try {
-      const data = await fetchAllPokemonData(POKEMON_FETCH_LIMIT);
-      setAllPokemon(data);
-    } catch (error) {
-      console.error("Failed to fetch initial Pokemon data:", error);
-      toast({
-        variant: "destructive",
-        title: "Error fetching Pokémon",
-        description: "Could not load initial Pokémon data. Please try again later.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInitialPokemon();
-  }, []);
+  // Removed useEffect for initial fetch, as data is now passed as a prop
 
   useEffect(() => {
     const handleEvolutionSearch = async () => {
       const trimmedDebouncedSearch = debouncedSearchTerm.trim().toLowerCase();
       if (searchCriteria === 'name' && trimmedDebouncedSearch) {
+        // Check if the search term fully matches a Pokemon in the main list to trigger evolution search
         const potentialMatchInAllPokemon = allPokemon.find(p => p.name.toLowerCase() === trimmedDebouncedSearch);
-
+        
         if (trimmedDebouncedSearch.length > 2 && potentialMatchInAllPokemon) {
           setIsEvolutionSearchLoading(true);
-          setEvolutionSearchResults([]);
+          setEvolutionSearchResults([]); // Clear previous evolution results
           try {
             const results = await getPokemonInEvolutionChainByName(trimmedDebouncedSearch);
             setEvolutionSearchResults(results);
@@ -87,22 +71,24 @@ function HomePageContent() {
                 description: error.message || "Could not perform evolution search.",
               });
             }
-            setEvolutionSearchResults([]);
+            setEvolutionSearchResults([]); // Ensure it's cleared on error
           } finally {
             setIsEvolutionSearchLoading(false);
           }
         } else {
+          // If not a full match or too short, clear evolution results and stop loading
           setEvolutionSearchResults([]);
           setIsEvolutionSearchLoading(false);
         }
       } else {
+        // If search criteria is not 'name' or search term is empty, clear evolution results
         setEvolutionSearchResults([]);
         setIsEvolutionSearchLoading(false);
       }
     };
 
     handleEvolutionSearch();
-  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]);
+  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]); // Added allPokemon dependency
 
   const regularFilteredPokemon = useMemo(() => {
     const normalizedSearch = debouncedSearchTerm.toLowerCase().trim();
@@ -121,6 +107,7 @@ function HomePageContent() {
       if (searchCriteria === 'id') {
         return String(pokemon.id) === normalizedSearch || `#${String(pokemon.id).padStart(3,'0')}` === normalizedSearch;
       }
+      // For 'name' criteria, this is for partial matching / suggestions before evolution search takes over
       if (searchCriteria === 'name') {
          return pokemon.name.toLowerCase().includes(normalizedSearch);
       }
@@ -128,25 +115,25 @@ function HomePageContent() {
     });
   }, [allPokemon, debouncedSearchTerm, searchCriteria]);
 
+
   const pokemonToDisplay = useMemo(() => {
     const trimmedDebouncedSearch = debouncedSearchTerm.trim().toLowerCase();
-    if (searchCriteria === 'name' && trimmedDebouncedSearch) {
-      if (evolutionSearchResults.length > 0 && !isEvolutionSearchLoading) {
-        return evolutionSearchResults;
-      }
-      return regularFilteredPokemon;
+    // Prioritize evolution search results if available and loading is complete
+    if (searchCriteria === 'name' && trimmedDebouncedSearch && evolutionSearchResults.length > 0 && !isEvolutionSearchLoading) {
+      return evolutionSearchResults;
     }
+    // If evolution search is loading for a name search, or no evolution results yet, show regular filtered results (which handles partial name matches)
     return regularFilteredPokemon;
   }, [searchCriteria, debouncedSearchTerm, evolutionSearchResults, isEvolutionSearchLoading, regularFilteredPokemon]);
-
-  const currentOverallLoadingState = isLoading || (searchCriteria === 'name' && isEvolutionSearchLoading);
-
+  
+  // Overall loading state now primarily reflects evolution search loading
+  const currentOverallLoadingState = searchCriteria === 'name' && isEvolutionSearchLoading;
 
   const handleReset = () => {
     setSearchTerm('');
     setSearchCriteria('name');
     setEvolutionSearchResults([]);
-    // window.history.pushState({}, '', '/');
+    // window.history.pushState({}, '', '/'); // Consider if this is still needed or how to handle with server props
   };
 
   const getSearchPlaceholder = () => {
@@ -162,14 +149,17 @@ function HomePageContent() {
   const noResultsMessageText = useMemo(() => {
     const trimmedSearch = debouncedSearchTerm.trim();
     if (!trimmedSearch || pokemonToDisplay.length > 0 || currentOverallLoadingState) return "";
-
+  
     if (searchCriteria === 'name') {
       const potentialMatchInAllPokemon = allPokemon.find(p => p.name.toLowerCase() === trimmedSearch.toLowerCase());
+      // Message when evolution search attempted but yielded no results for a full name match
       if (potentialMatchInAllPokemon && evolutionSearchResults.length === 0 && !isEvolutionSearchLoading && trimmedSearch.length > 2) {
-        return `No evolutions found for "${searchTerm}". It might be a unique Pokémon or its evolution data isn't available.`;
+        return `No evolutions found for "${searchTerm}". It might be a unique Pokémon or its evolution data isn't available. Displaying original Pokémon if found.`;
       }
+      // Generic no match for name
       return `No Pokémon found matching "${searchTerm}". Try checking the spelling or a different name.`;
     }
+    // Generic no match for other criteria
     return `Your search for "${searchTerm}" using filter "${searchCriteria}" did not match any Pokémon. Try a different term or criteria.`;
   }, [searchCriteria, searchTerm, debouncedSearchTerm, pokemonToDisplay.length, currentOverallLoadingState, evolutionSearchResults.length, isEvolutionSearchLoading, allPokemon]);
 
@@ -210,7 +200,8 @@ function HomePageContent() {
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentOverallLoadingState ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {Array.from({ length: (searchCriteria === 'name' && isEvolutionSearchLoading) ? 3 : (isLoading ? 10 : Math.min(pokemonToDisplay.length, 5) || 5) }).map((_, index) => (
+            {/* Show fewer skeletons if it's an evolution search, more if it's the initial page load (which is now server-side) */}
+            {Array.from({ length: (searchCriteria === 'name' && isEvolutionSearchLoading) ? 3 : 5 }).map((_, index) => (
               <PokemonSkeletonCard key={index} />
             ))}
           </div>
@@ -236,18 +227,15 @@ function HomePageContent() {
                 <RotateCcw className="mr-2 h-4 w-4" /> Reset Search
               </Button>
             </div>
-        ) : !debouncedSearchTerm.trim() && allPokemon.length === 0 && !isLoading ? (
+        ) : !debouncedSearchTerm.trim() && allPokemon.length === 0 ? (
              <div className="text-center py-10">
                <p className="text-muted-foreground mb-4">
-                 Failed to load Pokémon. Please try refreshing the page or check your connection.
+                 No Pokémon data loaded. This might be an issue with the initial data fetching.
                </p>
-               <Button onClick={fetchInitialPokemon} variant="outline">
-                 <RotateCcw className="mr-2 h-4 w-4" /> Try Again
-              </Button>
              </div>
         ) : null }
 
-        {!debouncedSearchTerm.trim() && allPokemon.length > 0 && !isLoading && pokemonToDisplay.length === allPokemon.length && (
+        {!debouncedSearchTerm.trim() && allPokemon.length > 0 && pokemonToDisplay.length === allPokemon.length && (
            <div className="text-center py-10 text-muted-foreground">
              <p className="mb-1">
                Showing all {allPokemon.length} loaded Pokémon.
@@ -268,12 +256,21 @@ function HomePageContent() {
   );
 }
 
-export default function HomePage() {
+// This is now a Server Component
+export default async function HomePage() {
+  let initialAllPokemon: AppPokemon[] = [];
+  try {
+    initialAllPokemon = await fetchAllPokemonData(POKEMON_FETCH_LIMIT);
+  } catch (error) {
+    console.error("Failed to fetch initial Pokemon data on server:", error);
+    // Optionally, handle error state here, e.g., pass an error flag or empty array
+    // For now, it will proceed with an empty array if fetch fails.
+  }
+
   return (
     <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading Pokedex...</div>}>
-      <HomePageContent />
+      <HomePageContent initialAllPokemon={initialAllPokemon} />
     </Suspense>
   );
 }
-
     
