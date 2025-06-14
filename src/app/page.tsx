@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from '@/hooks/use-debounce';
 import { Search, RotateCcw, ListFilter } from 'lucide-react';
 
-const POKEMON_FETCH_LIMIT = 151; // Fetching Gen 1 Pokemon (default load)
+const POKEMON_FETCH_LIMIT = 151; 
 type SearchCriteria = 'name' | 'type' | 'generation' | 'id';
 
 
@@ -57,29 +57,32 @@ function HomePageContent() {
 
   useEffect(() => {
     const handleEvolutionSearch = async () => {
-      const trimmedDebouncedSearch = debouncedSearchTerm.trim();
+      const trimmedDebouncedSearch = debouncedSearchTerm.trim().toLowerCase();
       if (searchCriteria === 'name' && trimmedDebouncedSearch) {
-        // Check if the search term seems like a "complete" name before firing API
-        // This is a heuristic. A more robust way might involve checking against allPokemon names.
-        const potentialMatchInAllPokemon = allPokemon.find(p => p.name.toLowerCase() === trimmedDebouncedSearch.toLowerCase());
+        const potentialMatchInAllPokemon = allPokemon.find(p => p.name.toLowerCase() === trimmedDebouncedSearch);
 
-        if (trimmedDebouncedSearch.length > 2 && potentialMatchInAllPokemon) { // Only fetch evolutions for potentially complete names
+        if (trimmedDebouncedSearch.length > 2 && potentialMatchInAllPokemon) { 
           setIsEvolutionSearchLoading(true);
           setEvolutionSearchResults([]); 
           try {
             const results = await getPokemonInEvolutionChainByName(trimmedDebouncedSearch);
             setEvolutionSearchResults(results);
             if (results.length === 0 && trimmedDebouncedSearch) {
+              // This case might be rare now if potentialMatchInAllPokemon implies it exists
+              // but good for safety if API returns empty for a "found" Pokemon.
                toast({ 
                 title: "No Pokémon Evolutions Found",
-                description: `No evolutions found for "${trimmedDebouncedSearch}". It might be a unique Pokémon or the name is misspelled.`,
+                description: `No evolutions found for "${trimmedDebouncedSearch}". It might be a unique Pokémon or its data is unavailable.`,
               });
             }
           } catch (error: any) {
             console.error("Failed to fetch evolution chain:", error);
             if (error.message && error.message.includes("not found")) {
-              // This toast will be shown if API call was made and Pokemon not found
-              // No need to show toast if it's just partial input that doesn't match `potentialMatchInAllPokemon`
+              // This toast for when API itself says "not found"
+               toast({
+                title: "Evolution Search Error",
+                description: `Could not find Pokémon "${trimmedDebouncedSearch}" to get evolutions.`,
+              });
             } else {
                toast({
                 variant: "destructive",
@@ -92,18 +95,18 @@ function HomePageContent() {
             setIsEvolutionSearchLoading(false);
           }
         } else {
-          // If not a "complete" name, don't fetch evolutions, clear previous evolution results
           setEvolutionSearchResults([]);
-          setIsEvolutionSearchLoading(false);
+          setIsEvolutionSearchLoading(false); // Ensure loading is false if not fetching
         }
       } else {
         setEvolutionSearchResults([]);
-        setIsEvolutionSearchLoading(false);
+        setIsEvolutionSearchLoading(false); // Also clear and set loading false if criteria isn't name or search is empty
       }
     };
 
     handleEvolutionSearch();
-  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]); // allPokemon added to dep array for potentialMatchInAllPokemon check
+  // Ensure allPokemon is in dep array if potentialMatchInAllPokemon relies on its latest state.
+  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]); 
 
   const regularFilteredPokemon = useMemo(() => {
     const normalizedSearch = debouncedSearchTerm.toLowerCase().trim();
@@ -111,6 +114,7 @@ function HomePageContent() {
       return allPokemon; 
     }
 
+    // This filter is for type, generation, id, OR for partial name suggestions
     return allPokemon.filter(pokemon => {
       if (searchCriteria === 'type') {
         return pokemon.types.some(type => type.toLowerCase().includes(normalizedSearch));
@@ -123,7 +127,7 @@ function HomePageContent() {
         return String(pokemon.id) === normalizedSearch || `#${String(pokemon.id).padStart(3,'0')}` === normalizedSearch;
       }
       if (searchCriteria === 'name') {
-         // This provides suggestions from allPokemon list as user types
+         // This provides suggestions from allPokemon list as user types (partial match)
          return pokemon.name.toLowerCase().includes(normalizedSearch);
       }
       return false;
@@ -131,31 +135,35 @@ function HomePageContent() {
   }, [allPokemon, debouncedSearchTerm, searchCriteria]);
 
   const pokemonToDisplay = useMemo(() => {
-    const trimmedDebouncedSearch = debouncedSearchTerm.trim();
+    const trimmedDebouncedSearch = debouncedSearchTerm.trim().toLowerCase();
     if (searchCriteria === 'name' && trimmedDebouncedSearch) {
-      // Prioritize evolution search results if they are available and search is complete
+      // Prioritize evolution search results if they are available (not loading, and has items)
+      // This implies a "complete name" was likely entered and matched.
       if (evolutionSearchResults.length > 0 && !isEvolutionSearchLoading) {
         return evolutionSearchResults;
       }
-      // Otherwise (evolution search is loading, or failed/returned empty, or term was too partial for it)
-      // show the locally filtered suggestions from allPokemon.
+      // If evolution search is loading, or it returned empty, or term was too partial for it,
+      // show the locally filtered suggestions from allPokemon (partial name matches).
       return regularFilteredPokemon;
     }
-    // For other criteria (type, gen, id) or if search term is empty (which shows allPokemon via regularFilteredPokemon)
+    // For other criteria (type, gen, id) or if search term is empty (shows allPokemon via regularFilteredPokemon)
     return regularFilteredPokemon;
   }, [searchCriteria, debouncedSearchTerm, evolutionSearchResults, isEvolutionSearchLoading, regularFilteredPokemon]);
   
-  const currentOverallLoadingState = isLoading || (searchCriteria === 'name' && debouncedSearchTerm.trim().length > 2 && isEvolutionSearchLoading);
+  const currentOverallLoadingState = isLoading || (searchCriteria === 'name' && isEvolutionSearchLoading);
+
 
   const handleReset = () => {
     setSearchTerm('');
     setSearchCriteria('name');
-    setEvolutionSearchResults([]);
+    setEvolutionSearchResults([]); 
+    // Update URL to reflect reset state for consistency if desired, or rely on next navigation
+    // window.history.pushState({}, '', '/'); 
   };
 
   const getSearchPlaceholder = () => {
     switch (searchCriteria) {
-      case 'name': return "Pokémon Name (e.g., Pikachu)";
+      case 'name': return "Name (e.g., Pikachu for evolutions)";
       case 'type': return "Type (e.g., Fire)";
       case 'generation': return "Gen (e.g., Gen 1 or generation-i)";
       case 'id': return "ID (e.g., 25 or #025)";
@@ -166,14 +174,17 @@ function HomePageContent() {
   const noResultsMessageText = useMemo(() => {
     const trimmedSearch = debouncedSearchTerm.trim();
     if (!trimmedSearch || pokemonToDisplay.length > 0 || currentOverallLoadingState) return "";
-
+  
     if (searchCriteria === 'name') {
-      // If evolution search was attempted (results empty, not loading)
-      if (evolutionSearchResults.length === 0 && !isEvolutionSearchLoading && trimmedSearch.length > 2 && allPokemon.find(p => p.name.toLowerCase() === trimmedSearch.toLowerCase())) {
+      const potentialMatchInAllPokemon = allPokemon.find(p => p.name.toLowerCase() === trimmedSearch.toLowerCase());
+      // If evolution search was attempted for a "complete" name (it's not loading AND results are empty)
+      if (potentialMatchInAllPokemon && evolutionSearchResults.length === 0 && !isEvolutionSearchLoading && trimmedSearch.length > 2) {
         return `No evolutions found for "${searchTerm}". It might be a unique Pokémon or its evolution data isn't available.`;
       }
-      return `No Pokémon found matching "${searchTerm}". Try checking the spelling.`;
+      // General no match for name
+      return `No Pokémon found matching "${searchTerm}". Try checking the spelling or a different name.`;
     }
+    // For other criteria
     return `Your search for "${searchTerm}" using filter "${searchCriteria}" did not match any Pokémon. Try a different term or criteria.`;
   }, [searchCriteria, searchTerm, debouncedSearchTerm, pokemonToDisplay.length, currentOverallLoadingState, evolutionSearchResults.length, isEvolutionSearchLoading, allPokemon]);
 
@@ -214,7 +225,8 @@ function HomePageContent() {
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentOverallLoadingState ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {Array.from({ length: (searchCriteria === 'name' && isEvolutionSearchLoading) ? 3 : (isLoading ? 10 : 5) }).map((_, index) => (
+            {/* Show fewer skeletons if it's an evolution search (typically 1-3 results) vs initial load */}
+            {Array.from({ length: (searchCriteria === 'name' && isEvolutionSearchLoading) ? 3 : (isLoading ? 10 : Math.min(regularFilteredPokemon.length, 5) || 5) }).map((_, index) => (
               <PokemonSkeletonCard key={index} />
             ))}
           </div>
@@ -224,7 +236,7 @@ function HomePageContent() {
               <PokemonCard 
                 key={`${pokemon.id}-${pokemon.name}`} 
                 pokemon={pokemon}
-                currentSearchTerm={debouncedSearchTerm}
+                currentSearchTerm={debouncedSearchTerm.trim()} // Pass trimmed debounced term for link consistency
                 currentSearchCriteria={searchCriteria}
               />
             ))}
@@ -252,9 +264,12 @@ function HomePageContent() {
         ) : null }
         
         {!debouncedSearchTerm.trim() && allPokemon.length > 0 && !isLoading && pokemonToDisplay.length === allPokemon.length && (
-           <div className="text-center py-10">
-             <p className="text-muted-foreground mb-4">
-               Use the search bar to find Pokémon by name, type, generation, or ID.
+           <div className="text-center py-10 text-muted-foreground">
+             <p className="mb-1">
+               Showing all {allPokemon.length} loaded Pokémon.
+             </p>
+             <p>
+               Use the search bar to find Pokémon by name (for evolutions), type, generation, or ID.
              </p>
            </div>
         )}
@@ -271,8 +286,9 @@ function HomePageContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div>Loading navigation...</div>}> {/* Suspense boundary for useSearchParams */}
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading Pokedex...</div>}>
       <HomePageContent />
     </Suspense>
   );
 }
+

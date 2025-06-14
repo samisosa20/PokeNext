@@ -5,18 +5,20 @@ import { useEffect, useState, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import type { AppPokemonDetails, PokemonStat } from '@/lib/pokemon-api';
-import { fetchAppPokemonDetails } from '@/lib/pokemon-api';
+import type { AppPokemon, AppPokemonDetails, PokemonStat } from '@/lib/pokemon-api';
+import { fetchAppPokemonDetails, getPokemonInEvolutionChainByName } from '@/lib/pokemon-api';
 import PokemonTypeBadge from '@/components/pokemon-type-badge';
+import PokemonCard from '@/components/pokemon-card';
+import PokemonSkeletonCard from '@/components/pokemon-skeleton-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, BarChart2, Zap, Shield, Swords, Heart, Brain, Wind, Weight, Ruler } from 'lucide-react'; // Added icons
+import { ArrowLeft, BarChart2, Zap, Shield, Swords, Heart, Brain, Wind, Weight, Ruler, Users } from 'lucide-react';
 
 function PokemonStatDisplay({ name, value }: { name: string; value: number }) {
   let IconComponent;
-  let progressColorClass = "bg-primary"; // Default color
+  let progressColorClass = "bg-primary"; 
 
   switch (name.toLowerCase()) {
     case 'hp':
@@ -36,7 +38,7 @@ function PokemonStatDisplay({ name, value }: { name: string; value: number }) {
       progressColorClass = value > 70 ? "bg-purple-500" : value > 40 ? "bg-pink-500" : "bg-rose-500";
       break;
     case 'special defense':
-      IconComponent = Brain; // Using Brain for Sp. Defense
+      IconComponent = Brain; 
       progressColorClass = value > 70 ? "bg-teal-500" : value > 40 ? "bg-emerald-500" : "bg-lime-500";
       break;
     case 'speed':
@@ -47,9 +49,7 @@ function PokemonStatDisplay({ name, value }: { name: string; value: number }) {
       IconComponent = BarChart2;
   }
 
-  // Max base stat known is around 255 (Blissey HP, Shuckle Def/SpD). Normalize to 255 for progress.
   const normalizedValue = Math.min((value / 255) * 100, 100);
-
 
   return (
     <div className="mb-3">
@@ -68,18 +68,22 @@ function PokemonStatDisplay({ name, value }: { name: string; value: number }) {
 
 function PokemonDetailPageContent() {
   const params = useParams();
-  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict
+  const searchParamsHook = useSearchParams(); 
   const id = params.id as string;
 
   const [pokemon, setPokemon] = useState<AppPokemonDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [evolutionChain, setEvolutionChain] = useState<AppPokemon[]>([]);
+  const [isEvolutionChainLoading, setIsEvolutionChainLoading] = useState(false);
+
   useEffect(() => {
     if (id) {
       const loadPokemonDetails = async () => {
         setIsLoading(true);
         setError(null);
+        setEvolutionChain([]); 
         try {
           const data = await fetchAppPokemonDetails(id);
           if (data) {
@@ -98,9 +102,30 @@ function PokemonDetailPageContent() {
     }
   }, [id]);
 
+  useEffect(() => {
+    const fetchEvolutions = async () => {
+      if (pokemon && pokemon.name) {
+        setIsEvolutionChainLoading(true);
+        try {
+          const chainData = await getPokemonInEvolutionChainByName(pokemon.name);
+          setEvolutionChain(chainData);
+        } catch (error) {
+          console.error("Failed to fetch evolution chain for detail page:", error);
+          // Optionally set an error state for evolutions here
+        } finally {
+          setIsEvolutionChainLoading(false);
+        }
+      }
+    };
+
+    if (pokemon && !isLoading) { 
+      fetchEvolutions();
+    }
+  }, [pokemon, isLoading]);
+
   const backSearchTerm = searchParamsHook.get('searchTerm') || '';
   const backSearchCriteria = searchParamsHook.get('searchCriteria') || 'name';
-  const backLinkHref = `/?searchTerm=${encodeURIComponent(backSearchTerm)}&searchCriteria=${backSearchCriteria}`;
+  const backLinkHref = `/?searchTerm=${encodeURIComponent(backSearchTerm)}&searchCriteria=${encodeURIComponent(backSearchCriteria)}`;
 
   if (isLoading) {
     return (
@@ -155,7 +180,7 @@ function PokemonDetailPageContent() {
   }
 
   if (!pokemon) {
-    return ( // Should ideally not be reached if error handling is correct
+    return ( 
       <div className="container mx-auto px-4 py-8 text-center">
         <p>Pokémon data not available.</p>
          <Link href={backLinkHref} passHref legacyBehavior>
@@ -168,14 +193,14 @@ function PokemonDetailPageContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl"> {/* Increased max-width for evolution chain */}
       <Link href={backLinkHref} passHref legacyBehavior>
         <Button variant="outline" className="mb-6 group">
           <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Gallery
         </Button>
       </Link>
 
-      <Card className="shadow-xl overflow-hidden rounded-xl">
+      <Card className="shadow-xl overflow-hidden rounded-xl mb-8">
         <CardHeader className="p-0">
             <div className="relative w-full h-72 sm:h-80 md:h-96 bg-muted/30 flex items-center justify-center overflow-hidden">
                  <Image
@@ -214,8 +239,8 @@ function PokemonDetailPageContent() {
             <div className="space-y-4">
               <div>
                 <h3 className="text-xl font-semibold mb-2 font-headline text-foreground flex items-center"><Ruler className="w-5 h-5 mr-2 text-accent" /> Physical</h3>
-                <p className="text-sm text-muted-foreground"><strong className="text-foreground">Height:</strong> {(pokemon.height / 10).toFixed(1)} m</p> {/* Convert decimetres to metres */}
-                <p className="text-sm text-muted-foreground"><strong className="text-foreground">Weight:</strong> {(pokemon.weight / 10).toFixed(1)} kg</p> {/* Convert hectograms to kilograms */}
+                <p className="text-sm text-muted-foreground"><strong className="text-foreground">Height:</strong> {(pokemon.height / 10).toFixed(1)} m</p>
+                <p className="text-sm text-muted-foreground"><strong className="text-foreground">Weight:</strong> {(pokemon.weight / 10).toFixed(1)} kg</p>
               </div>
               
               <div>
@@ -230,12 +255,43 @@ function PokemonDetailPageContent() {
           </div>
         </CardContent>
       </Card>
+
+      {isEvolutionChainLoading && (
+        <div className="mt-8">
+          <h3 className="text-2xl md:text-3xl font-semibold mb-6 font-headline text-foreground flex items-center">
+            <Users className="w-6 h-6 mr-2 text-accent" /> Loading Evolution Chain...
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6"> {/* Adjusted lg breakpoint for 3 cards */}
+            {Array.from({ length: 3 }).map((_, index) => <PokemonSkeletonCard key={`evo-skeleton-${index}`} />)}
+          </div>
+        </div>
+      )}
+
+      {!isEvolutionChainLoading && evolutionChain.length > 0 && (
+         // Only show section if there are evolutions (could be > 1 if current Pokémon is part of chain)
+         // Or if you always want to show the current Pokémon as part of its "chain" (even if solo), use evolutionChain.length > 0
+        <div className="mt-8">
+          <h3 className="text-2xl md:text-3xl font-semibold mb-6 font-headline text-foreground flex items-center">
+             <Users className="w-6 h-6 mr-2 text-accent" /> Evolution Chain
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6"> {/* Adjusted lg breakpoint */}
+            {evolutionChain.map(evoPokemon => (
+              <PokemonCard
+                key={`evo-${evoPokemon.id}`}
+                pokemon={evoPokemon}
+                currentSearchTerm={backSearchTerm} 
+                currentSearchCriteria={backSearchCriteria} 
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
 
-// Add a wrapper component that uses Suspense
 export default function PokemonDetailPage() {
   return (
     <Suspense fallback={<div className="container mx-auto px-4 py-8 max-w-3xl text-center">Loading Pokémon details...</div>}>
@@ -243,3 +299,4 @@ export default function PokemonDetailPage() {
     </Suspense>
   );
 }
+
