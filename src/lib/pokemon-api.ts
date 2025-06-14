@@ -23,13 +23,27 @@ export interface PokemonSprites {
   };
 }
 
+export interface PokemonStatAPI {
+  base_stat: number;
+  effort: number;
+  stat: { name: string; url: string };
+}
+
+export interface PokemonAbilityAPI {
+  ability: { name: string; url: string };
+  is_hidden: boolean;
+  slot: number;
+}
+
 export interface PokemonDetails {
   id: number;
   name: string;
-  height: number;
-  weight: number;
+  height: number; // decimetres
+  weight: number; // hectograms
   sprites: PokemonSprites;
   types: PokemonType[];
+  stats: PokemonStatAPI[];
+  abilities: PokemonAbilityAPI[];
   species: { name: string; url: string };
 }
 
@@ -70,6 +84,19 @@ export interface EvolutionChainResponse {
   chain: ChainLink;
 }
 
+// For Pokemon Detail Page
+export interface PokemonStat {
+  name: string;
+  base_stat: number;
+}
+
+export interface AppPokemonDetails extends AppPokemon {
+  stats: PokemonStat[];
+  height: number; // in decimetres
+  weight: number; // in hectograms
+  abilities: string[];
+}
+
 
 const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
 
@@ -79,6 +106,10 @@ export function formatGenerationName(apiName: string): string {
   }
   const parts = apiName.split('-');
   return `Generation ${parts[1].toUpperCase()}`;
+}
+
+function capitalizeFirstLetter(string: string): string {
+  return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -99,7 +130,6 @@ export async function getPokemonDetails(nameOrId: string | number): Promise<Poke
 }
 
 export async function getPokemonSpeciesDetails(nameOrId: string | number): Promise<PokemonSpeciesDetails> {
-  // Species API often expects lowercase names or ID
   const query = typeof nameOrId === 'string' ? nameOrId.toLowerCase() : nameOrId;
   return fetchJson<PokemonSpeciesDetails>(`${POKEAPI_BASE_URL}/pokemon-species/${query}`);
 }
@@ -129,7 +159,6 @@ export function extractPokemonNamesFromChain(chain: ChainLink): string[] {
 export async function fetchSingleAppPokemon(nameOrId: string | number): Promise<AppPokemon | null> {
   try {
     const details = await getPokemonDetails(nameOrId);
-    // Extract ID from species URL (e.g. "https://pokeapi.co/api/v2/pokemon-species/25/") or use pokemon ID
     const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
     const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
@@ -139,7 +168,7 @@ export async function fetchSingleAppPokemon(nameOrId: string | number): Promise<
 
     return {
       id: details.id,
-      name: details.name.charAt(0).toUpperCase() + details.name.slice(1),
+      name: capitalizeFirstLetter(details.name),
       imageUrl: imageUrl,
       types: details.types.map(t => t.type.name),
       generation: formatGenerationName(speciesDetails.generation.name),
@@ -151,19 +180,49 @@ export async function fetchSingleAppPokemon(nameOrId: string | number): Promise<
   }
 }
 
+export async function fetchAppPokemonDetails(id: string | number): Promise<AppPokemonDetails | null> {
+  try {
+    const details = await getPokemonDetails(id);
+    const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
+    const speciesDetails = await getPokemonSpeciesDetails(speciesId);
+
+    const imageUrl = details.sprites.other?.['official-artwork']?.front_default ||
+                     details.sprites.front_default ||
+                     `https://placehold.co/400x400.png`;
+
+    return {
+      id: details.id,
+      name: capitalizeFirstLetter(details.name),
+      imageUrl: imageUrl,
+      types: details.types.map(t => capitalizeFirstLetter(t.type.name)),
+      generation: formatGenerationName(speciesDetails.generation.name),
+      evolutionChainUrl: speciesDetails.evolution_chain?.url,
+      stats: details.stats.map(s => ({
+        name: capitalizeFirstLetter(s.stat.name.replace('-', ' ')),
+        base_stat: s.base_stat,
+      })),
+      height: details.height, // In decimetres (e.g., 7 for 0.7m)
+      weight: details.weight, // In hectograms (e.g., 69 for 6.9kg)
+      abilities: details.abilities.map(a => capitalizeFirstLetter(a.ability.name.replace('-', ' '))),
+    };
+  } catch (error) {
+    console.error(`Failed to fetch AppPokemonDetails for ${id}:`, error);
+    return null;
+  }
+}
+
+
 export async function getPokemonInEvolutionChainByName(pokemonName: string): Promise<AppPokemon[]> {
   let speciesDetails: PokemonSpeciesDetails;
   try {
     speciesDetails = await getPokemonSpeciesDetails(pokemonName.toLowerCase());
   } catch (error) {
     console.error(`Failed to fetch species details for ${pokemonName}:`, error);
-    // This error will be caught by the calling function to show a toast
     throw new Error(`Pokémon "${pokemonName}" not found.`);
   }
 
   if (!speciesDetails.evolution_chain?.url) {
     console.warn(`No evolution chain URL for ${pokemonName}`);
-    // If the Pokemon exists but has no evolution chain, just return that single Pokemon.
     const singlePokemon = await fetchSingleAppPokemon(speciesDetails.id);
     return singlePokemon ? [singlePokemon] : [];
   }
@@ -178,7 +237,6 @@ export async function getPokemonInEvolutionChainByName(pokemonName: string): Pro
   const appPokemonPromises = pokemonNamesInChain.map(name => fetchSingleAppPokemon(name));
   const appPokemonResults = await Promise.all(appPokemonPromises);
   
-  // Sort by ID to maintain a somewhat logical order (e.g., Pichu -> Pikachu -> Raichu)
   return (appPokemonResults.filter(p => p !== null) as AppPokemon[]).sort((a,b) => a.id - b.id);
 }
 
@@ -188,7 +246,6 @@ export async function fetchAllPokemonData(limit: number = 151): Promise<AppPokem
   const pokemonPromises = list.map(async (pItem) => {
     try {
       const details = await getPokemonDetails(pItem.name);
-      // Extract ID from species URL (e.g. "https://pokeapi.co/api/v2/pokemon-species/25/") or use pokemon ID
       const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
       const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
@@ -198,7 +255,7 @@ export async function fetchAllPokemonData(limit: number = 151): Promise<AppPokem
 
       return {
         id: details.id,
-        name: details.name.charAt(0).toUpperCase() + details.name.slice(1),
+        name: capitalizeFirstLetter(details.name),
         imageUrl: imageUrl,
         types: details.types.map(t => t.type.name),
         generation: formatGenerationName(speciesDetails.generation.name),
