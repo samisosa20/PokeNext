@@ -69,7 +69,7 @@ function PokemonStatDisplay({ name, value }: { name: string; value: number }) {
 function PokemonDetailPageContent() {
   const params = useParams();
   const searchParamsHook = useSearchParams(); 
-  const id = params.id as string;
+  const currentPokemonId = params.id as string;
 
   const [pokemon, setPokemon] = useState<AppPokemonDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,13 +79,13 @@ function PokemonDetailPageContent() {
   const [isEvolutionChainLoading, setIsEvolutionChainLoading] = useState(false);
 
   useEffect(() => {
-    if (id) {
+    if (currentPokemonId) {
       const loadPokemonDetails = async () => {
         setIsLoading(true);
         setError(null);
         setEvolutionChain([]); 
         try {
-          const data = await fetchAppPokemonDetails(id);
+          const data = await fetchAppPokemonDetails(currentPokemonId);
           if (data) {
             setPokemon(data);
           } else {
@@ -100,13 +100,15 @@ function PokemonDetailPageContent() {
       };
       loadPokemonDetails();
     }
-  }, [id]);
+  }, [currentPokemonId]);
 
   useEffect(() => {
     const fetchEvolutions = async () => {
       if (pokemon && pokemon.name) {
         setIsEvolutionChainLoading(true);
         try {
+          // Use pokemon.name to fetch its evolution chain.
+          // The fetched chain will include the current pokemon as well.
           const chainData = await getPokemonInEvolutionChainByName(pokemon.name);
           setEvolutionChain(chainData);
         } catch (error) {
@@ -193,7 +195,7 @@ function PokemonDetailPageContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl"> {/* Increased max-width for evolution chain */}
+    <div className="container mx-auto px-4 py-8 max-w-4xl"> 
       <Link href={backLinkHref}>
         <Button variant="outline" className="mb-6 group">
           <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Gallery
@@ -209,6 +211,7 @@ function PokemonDetailPageContent() {
                     width={400}
                     height={400}
                     className="object-contain max-w-full max-h-full transition-transform duration-300 hover:scale-105"
+                    priority // Prioritize loading image for current pokemon
                     unoptimized={pokemon.imageUrl.startsWith('https://placehold.co')}
                     data-ai-hint={pokemon.imageUrl.startsWith('https://placehold.co') ? 'pokemon character render' : undefined}
                   />
@@ -261,7 +264,7 @@ function PokemonDetailPageContent() {
           <h3 className="text-2xl md:text-3xl font-semibold mb-6 font-headline text-foreground flex items-center">
             <Users className="w-6 h-6 mr-2 text-accent" /> Loading Evolution Chain...
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6"> {/* Adjusted lg breakpoint for 3 cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
             {Array.from({ length: 3 }).map((_, index) => <PokemonSkeletonCard key={`evo-skeleton-${index}`} />)}
           </div>
         </div>
@@ -272,13 +275,14 @@ function PokemonDetailPageContent() {
           <h3 className="text-2xl md:text-3xl font-semibold mb-6 font-headline text-foreground flex items-center">
              <Users className="w-6 h-6 mr-2 text-accent" /> Evolution Chain
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6"> {/* Adjusted lg breakpoint */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
             {evolutionChain.map(evoPokemon => (
               <PokemonCard
                 key={`evo-${evoPokemon.id}`}
                 pokemon={evoPokemon}
                 currentSearchTerm={backSearchTerm} 
-                currentSearchCriteria={backSearchCriteria} 
+                currentSearchCriteria={backSearchCriteria}
+                isCurrentPokemonInChain={evoPokemon.id === pokemon.id}
               />
             ))}
           </div>

@@ -5,27 +5,32 @@ import type { AppPokemon } from '@/lib/pokemon-api';
 import PokemonTypeBadge from './pokemon-type-badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface PokemonCardProps {
   pokemon: AppPokemon;
   currentSearchTerm?: string;
   currentSearchCriteria?: string;
+  isCurrentPokemonInChain?: boolean;
 }
 
-const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, currentSearchTerm = '', currentSearchCriteria = 'name' }) => {
+const PokemonCard: React.FC<PokemonCardProps> = ({ pokemon, currentSearchTerm = '', currentSearchCriteria = 'name', isCurrentPokemonInChain = false }) => {
   const linkHref = `/pokemon/${pokemon.id}?searchTerm=${encodeURIComponent(currentSearchTerm)}&searchCriteria=${currentSearchCriteria}`;
   
   return (
     <Link href={linkHref} className="block group">
-      <Card className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full">
+      <Card className={cn(
+        "flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full",
+        isCurrentPokemonInChain && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+      )}>
         <CardHeader className="p-4 w-full">
           <div className="relative w-32 h-32 md:w-40 md:h-40 mx-auto mb-2">
             <Image
               src={pokemon.imageUrl}
               alt={pokemon.name}
-              layout="fill"
-              objectFit="contain"
-              className="transition-transform duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 768px) 128px, 160px"
+              className="object-contain transition-transform duration-300 group-hover:scale-105"
               unoptimized={pokemon.imageUrl.startsWith('https://placehold.co')} 
               data-ai-hint={pokemon.imageUrl.startsWith('https://placehold.co') ? 'pokemon character' : undefined}
             />
