@@ -1,4 +1,6 @@
 
+import { cache } from 'react';
+
 export interface PokemonListItem {
   name: string;
   url: string;
@@ -129,30 +131,30 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json();
 }
 
-export async function getPokemonList(
+export const getPokemonList = cache(async (
   limit: number = 151,
   offset: number = 0
-): Promise<PokemonListItem[]> {
+): Promise<PokemonListItem[]> => {
   const data = await fetchJson<{ results: PokemonListItem[] }>(
     `${POKEAPI_BASE_URL}/pokemon?limit=${limit}&offset=${offset}`
   );
   return data.results;
-}
+});
 
-export async function getTypeList(
+export const getTypeList = cache(async (
   limit: number = 21,
   offset: number = 0
-): Promise<TypesResponse[]> {
+): Promise<TypesResponse[]> => {
   const data = await fetchJson<{ results: TypesResponse[] }>(
     `${POKEAPI_BASE_URL}/type?limit=${limit}&offset=${offset}`
   );
   return data.results;
-}
+});
 
-export async function getGenerationList(
+export const getGenerationList = cache(async (
   limit: number = 21,
   offset: number = 0
-): Promise<GenerationResponse[]> {
+): Promise<GenerationResponse[]> => {
   const data = await fetchJson<{ results: GenerationResponse[] }>(
     `${POKEAPI_BASE_URL}/generation?limit=${limit}&offset=${offset}`
   );
@@ -160,34 +162,34 @@ export async function getGenerationList(
     id: index,
     name: formatGenerationName(gen.name),
   }));
-}
+});
 
-export async function getPokemonDetails(
+export const getPokemonDetails = cache(async (
   nameOrId: string | number
-): Promise<PokemonDetails> {
+): Promise<PokemonDetails> => {
   return fetchJson<PokemonDetails>(`${POKEAPI_BASE_URL}/pokemon/${nameOrId}`);
-}
+});
 
-export async function getPokemonSpeciesDetails(
+export const getPokemonSpeciesDetails = cache(async (
   nameOrId: string | number
-): Promise<PokemonSpeciesDetails> {
+): Promise<PokemonSpeciesDetails> => {
   const query =
     typeof nameOrId === "string" ? nameOrId.toLowerCase() : nameOrId;
   return fetchJson<PokemonSpeciesDetails>(
     `${POKEAPI_BASE_URL}/pokemon-species/${query}`
   );
-}
+});
 
-export async function getEvolutionChainByUrl(
+export const getEvolutionChainByUrl = cache(async (
   url: string
-): Promise<EvolutionChainResponse | null> {
+): Promise<EvolutionChainResponse | null> => {
   try {
     return await fetchJson<EvolutionChainResponse>(url);
   } catch (error) {
     console.error(`Failed to fetch evolution chain from ${url}:`, error);
     return null;
   }
-}
+});
 
 function extractNamesRecursive(chainLink: ChainLink, names: string[]): void {
   names.push(chainLink.species.name);
@@ -202,9 +204,9 @@ export function extractPokemonNamesFromChain(chain: ChainLink): string[] {
   return names;
 }
 
-export async function fetchSingleAppPokemon(
+export const fetchSingleAppPokemon = cache(async (
   nameOrId: string | number
-): Promise<AppPokemon | null> {
+): Promise<AppPokemon | null> => {
   try {
     const details = await getPokemonDetails(nameOrId);
     const speciesId =
@@ -229,11 +231,11 @@ export async function fetchSingleAppPokemon(
     console.error(`Failed to fetch AppPokemon data for ${nameOrId}:`, error);
     return null;
   }
-}
+});
 
-export async function fetchAppPokemonDetails(
+export const fetchAppPokemonDetails = cache(async (
   id: string | number
-): Promise<AppPokemonDetails | null> {
+): Promise<AppPokemonDetails | null> => {
   try {
     const details = await getPokemonDetails(id);
     const speciesId =
@@ -257,8 +259,8 @@ export async function fetchAppPokemonDetails(
         name: capitalizeFirstLetter(s.stat.name.replace("-", " ")),
         base_stat: s.base_stat,
       })),
-      height: details.height, // In decimetres (e.g., 7 for 0.7m)
-      weight: details.weight, // In hectograms (e.g., 69 for 6.9kg)
+      height: details.height, 
+      weight: details.weight, 
       abilities: details.abilities.map((a) =>
         capitalizeFirstLetter(a.ability.name.replace("-", " "))
       ),
@@ -267,11 +269,11 @@ export async function fetchAppPokemonDetails(
     console.error(`Failed to fetch AppPokemonDetails for ${id}:`, error);
     return null;
   }
-}
+});
 
-export async function getPokemonInEvolutionChainByName(
+export const getPokemonInEvolutionChainByName = cache(async (
   pokemonName: string
-): Promise<AppPokemon[]> {
+): Promise<AppPokemon[]> => {
   let speciesDetails: PokemonSpeciesDetails;
   try {
     speciesDetails = await getPokemonSpeciesDetails(pokemonName.toLowerCase());
@@ -305,11 +307,11 @@ export async function getPokemonInEvolutionChainByName(
   return (appPokemonResults.filter((p) => p !== null) as AppPokemon[]).sort(
     (a, b) => a.id - b.id
   );
-}
+});
 
-export async function fetchAllPokemonData(
-  limit: number = 151
-): Promise<AppPokemon[]> {
+export const fetchAllPokemonData = cache(async (
+  limit: number = 650 
+): Promise<AppPokemon[]> => {
   const pokemonPromises: Promise<AppPokemon | null>[] = [];
 
   for (let i = 1; i <= limit; i++) {
@@ -337,7 +339,7 @@ export async function fetchAllPokemonData(
           };
         } catch (error) {
           console.error(`Failed to fetch data for Pokémon ID ${i}:`, error);
-          return null; // Return null for failed fetches, so Promise.allSettled can handle it
+          return null; 
         }
       })()
     );
@@ -346,23 +348,21 @@ export async function fetchAllPokemonData(
   const results = await Promise.allSettled(pokemonPromises);
   const allPokemonData: AppPokemon[] = [];
 
-  results.forEach((result, index) => {
+  results.forEach((result) => {
     if (result.status === "fulfilled" && result.value) {
       allPokemonData.push(result.value);
     } else if (result.status === "rejected") {
-      // Error is already logged in the async IIFE above for individual Pokémon
-      // console.error(`Promise for Pokémon ID ${index + 1} was rejected:`, result.reason);
+      // Error is logged in the IIFE
     }
   });
 
-  // Sort by ID as promises might resolve out of order and successful fetches are pushed
   return allPokemonData.sort((a, b) => a.id - b.id);
-}
+});
 
 
-export async function fetchAllPokemonDetails(
+export const fetchAllPokemonDetails = cache(async (
   name: string
-): Promise<AppPokemon> {
+): Promise<AppPokemon> => {
   const details = await getPokemonDetails(name);
   const speciesDetails = await getPokemonSpeciesDetails(details.id);
 
@@ -379,6 +379,4 @@ export async function fetchAllPokemonDetails(
     generation: formatGenerationName(speciesDetails.generation.name),
     evolutionChainUrl: speciesDetails.evolution_chain?.url,
   };
-}
-
-    
+});
