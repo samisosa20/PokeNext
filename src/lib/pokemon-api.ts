@@ -1,4 +1,3 @@
-
 export interface PokemonListItem {
   name: string;
   url: string;
@@ -17,7 +16,7 @@ export interface PokemonType {
 export interface PokemonSprites {
   front_default: string | null;
   other?: {
-    'official-artwork'?: {
+    "official-artwork"?: {
       front_default: string | null;
     };
   };
@@ -83,6 +82,14 @@ export interface EvolutionChainResponse {
   id: number;
   chain: ChainLink;
 }
+export interface TypesResponse {
+  id: number;
+  name: string;
+}
+export interface GenerationResponse {
+  id: number;
+  name: string;
+}
 
 // For Pokemon Detail Page
 export interface PokemonStat {
@@ -97,14 +104,13 @@ export interface AppPokemonDetails extends AppPokemon {
   abilities: string[];
 }
 
-
-const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
+const POKEAPI_BASE_URL = "https://pokeapi.co/api/v2";
 
 export function formatGenerationName(apiName: string): string {
-  if (!apiName.startsWith('generation-')) {
+  if (!apiName.startsWith("generation-")) {
     return apiName;
   }
-  const parts = apiName.split('-');
+  const parts = apiName.split("-");
   return `Generation ${parts[1].toUpperCase()}`;
 }
 
@@ -115,26 +121,65 @@ function capitalizeFirstLetter(string: string): string {
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.statusText} (${response.status})`);
+    throw new Error(
+      `Failed to fetch ${url}: ${response.statusText} (${response.status})`
+    );
   }
   return response.json();
 }
 
-export async function getPokemonList(limit: number = 151, offset: number = 0): Promise<PokemonListItem[]> {
-  const data = await fetchJson<{ results: PokemonListItem[] }>(`${POKEAPI_BASE_URL}/pokemon?limit=${limit}&offset=${offset}`);
+export async function getPokemonList(
+  limit: number = 151,
+  offset: number = 0
+): Promise<PokemonListItem[]> {
+  const data = await fetchJson<{ results: PokemonListItem[] }>(
+    `${POKEAPI_BASE_URL}/pokemon?limit=${limit}&offset=${offset}`
+  );
   return data.results;
 }
 
-export async function getPokemonDetails(nameOrId: string | number): Promise<PokemonDetails> {
+export async function getTypeList(
+  limit: number = 21,
+  offset: number = 0
+): Promise<TypesResponse[]> {
+  const data = await fetchJson<{ results: TypesResponse[] }>(
+    `${POKEAPI_BASE_URL}/type?limit=${limit}&offset=${offset}`
+  );
+  return data.results;
+}
+
+export async function getGenerationList(
+  limit: number = 21,
+  offset: number = 0
+): Promise<GenerationResponse[]> {
+  const data = await fetchJson<{ results: GenerationResponse[] }>(
+    `${POKEAPI_BASE_URL}/generation?limit=${limit}&offset=${offset}`
+  );
+  return data.results.map((gen, index) => ({
+    id: index,
+    name: formatGenerationName(gen.name),
+  }));
+}
+
+export async function getPokemonDetails(
+  nameOrId: string | number
+): Promise<PokemonDetails> {
   return fetchJson<PokemonDetails>(`${POKEAPI_BASE_URL}/pokemon/${nameOrId}`);
 }
 
-export async function getPokemonSpeciesDetails(nameOrId: string | number): Promise<PokemonSpeciesDetails> {
-  const query = typeof nameOrId === 'string' ? nameOrId.toLowerCase() : nameOrId;
-  return fetchJson<PokemonSpeciesDetails>(`${POKEAPI_BASE_URL}/pokemon-species/${query}`);
+export async function getPokemonSpeciesDetails(
+  nameOrId: string | number
+): Promise<PokemonSpeciesDetails> {
+  const query =
+    typeof nameOrId === "string" ? nameOrId.toLowerCase() : nameOrId;
+  return fetchJson<PokemonSpeciesDetails>(
+    `${POKEAPI_BASE_URL}/pokemon-species/${query}`
+  );
 }
 
-export async function getEvolutionChainByUrl(url: string): Promise<EvolutionChainResponse | null> {
+export async function getEvolutionChainByUrl(
+  url: string
+): Promise<EvolutionChainResponse | null> {
   try {
     return await fetchJson<EvolutionChainResponse>(url);
   } catch (error) {
@@ -156,21 +201,26 @@ export function extractPokemonNamesFromChain(chain: ChainLink): string[] {
   return names;
 }
 
-export async function fetchSingleAppPokemon(nameOrId: string | number): Promise<AppPokemon | null> {
+export async function fetchSingleAppPokemon(
+  nameOrId: string | number
+): Promise<AppPokemon | null> {
   try {
     const details = await getPokemonDetails(nameOrId);
-    const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
+    const speciesId =
+      details.species.url.split("/").filter(Boolean).pop() ||
+      details.id.toString();
     const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
-    const imageUrl = details.sprites.other?.['official-artwork']?.front_default ||
-                     details.sprites.front_default ||
-                     `https://placehold.co/200x200.png`;
+    const imageUrl =
+      details.sprites.other?.["official-artwork"]?.front_default ||
+      details.sprites.front_default ||
+      `https://placehold.co/200x200.png`;
 
     return {
       id: details.id,
       name: capitalizeFirstLetter(details.name),
       imageUrl: imageUrl,
-      types: details.types.map(t => t.type.name),
+      types: details.types.map((t) => t.type.name),
       generation: formatGenerationName(speciesDetails.generation.name),
       evolutionChainUrl: speciesDetails.evolution_chain?.url,
     };
@@ -180,30 +230,37 @@ export async function fetchSingleAppPokemon(nameOrId: string | number): Promise<
   }
 }
 
-export async function fetchAppPokemonDetails(id: string | number): Promise<AppPokemonDetails | null> {
+export async function fetchAppPokemonDetails(
+  id: string | number
+): Promise<AppPokemonDetails | null> {
   try {
     const details = await getPokemonDetails(id);
-    const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
+    const speciesId =
+      details.species.url.split("/").filter(Boolean).pop() ||
+      details.id.toString();
     const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
-    const imageUrl = details.sprites.other?.['official-artwork']?.front_default ||
-                     details.sprites.front_default ||
-                     `https://placehold.co/400x400.png`;
+    const imageUrl =
+      details.sprites.other?.["official-artwork"]?.front_default ||
+      details.sprites.front_default ||
+      `https://placehold.co/400x400.png`;
 
     return {
       id: details.id,
       name: capitalizeFirstLetter(details.name),
       imageUrl: imageUrl,
-      types: details.types.map(t => capitalizeFirstLetter(t.type.name)),
+      types: details.types.map((t) => capitalizeFirstLetter(t.type.name)),
       generation: formatGenerationName(speciesDetails.generation.name),
       evolutionChainUrl: speciesDetails.evolution_chain?.url,
-      stats: details.stats.map(s => ({
-        name: capitalizeFirstLetter(s.stat.name.replace('-', ' ')),
+      stats: details.stats.map((s) => ({
+        name: capitalizeFirstLetter(s.stat.name.replace("-", " ")),
         base_stat: s.base_stat,
       })),
       height: details.height, // In decimetres (e.g., 7 for 0.7m)
       weight: details.weight, // In hectograms (e.g., 69 for 6.9kg)
-      abilities: details.abilities.map(a => capitalizeFirstLetter(a.ability.name.replace('-', ' '))),
+      abilities: details.abilities.map((a) =>
+        capitalizeFirstLetter(a.ability.name.replace("-", " "))
+      ),
     };
   } catch (error) {
     console.error(`Failed to fetch AppPokemonDetails for ${id}:`, error);
@@ -211,8 +268,9 @@ export async function fetchAppPokemonDetails(id: string | number): Promise<AppPo
   }
 }
 
-
-export async function getPokemonInEvolutionChainByName(pokemonName: string): Promise<AppPokemon[]> {
+export async function getPokemonInEvolutionChainByName(
+  pokemonName: string
+): Promise<AppPokemon[]> {
   let speciesDetails: PokemonSpeciesDetails;
   try {
     speciesDetails = await getPokemonSpeciesDetails(pokemonName.toLowerCase());
@@ -227,46 +285,125 @@ export async function getPokemonInEvolutionChainByName(pokemonName: string): Pro
     return singlePokemon ? [singlePokemon] : [];
   }
 
-  const evolutionChainData = await getEvolutionChainByUrl(speciesDetails.evolution_chain.url);
+  const evolutionChainData = await getEvolutionChainByUrl(
+    speciesDetails.evolution_chain.url
+  );
   if (!evolutionChainData) {
     return [];
   }
 
-  const pokemonNamesInChain = extractPokemonNamesFromChain(evolutionChainData.chain);
-  
-  const appPokemonPromises = pokemonNamesInChain.map(name => fetchSingleAppPokemon(name));
+  const pokemonNamesInChain = extractPokemonNamesFromChain(
+    evolutionChainData.chain
+  );
+
+  const appPokemonPromises = pokemonNamesInChain.map((name) =>
+    fetchSingleAppPokemon(name)
+  );
   const appPokemonResults = await Promise.all(appPokemonPromises);
-  
-  return (appPokemonResults.filter(p => p !== null) as AppPokemon[]).sort((a,b) => a.id - b.id);
+
+  return (appPokemonResults.filter((p) => p !== null) as AppPokemon[]).sort(
+    (a, b) => a.id - b.id
+  );
 }
 
-
-export async function fetchAllPokemonData(limit: number = 151): Promise<AppPokemon[]> {
-  const list = await getPokemonList(limit);
-  const pokemonPromises = list.map(async (pItem) => {
+export async function fetchAllPokemonData(
+  limit: number = 151
+): Promise<AppPokemon[]> {
+  const allPokemonData: AppPokemon[] = [];
+  for (let i = 1; i <= limit; i++) {
     try {
-      const details = await getPokemonDetails(pItem.name);
-      const speciesId = details.species.url.split('/').filter(Boolean).pop() || details.id.toString();
+      const details = await getPokemonDetails(i);
+      const speciesId =
+        details.species.url.split("/").filter(Boolean).pop() ||
+        details.id.toString();
       const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
-      const imageUrl = details.sprites.other?.['official-artwork']?.front_default ||
-                       details.sprites.front_default ||
-                       `https://placehold.co/200x200.png`; 
+      const imageUrl =
+        details.sprites.other?.["official-artwork"]?.front_default ||
+        details.sprites.front_default ||
+        `https://placehold.co/200x200.png`;
 
-      return {
+      allPokemonData.push({
         id: details.id,
         name: capitalizeFirstLetter(details.name),
         imageUrl: imageUrl,
-        types: details.types.map(t => t.type.name),
+        types: details.types.map((t) => t.type.name),
         generation: formatGenerationName(speciesDetails.generation.name),
         evolutionChainUrl: speciesDetails.evolution_chain?.url,
-      };
+      });
     } catch (error) {
-      console.error(`Failed to fetch data for ${pItem.name}:`, error);
-      return null; 
+      console.error(`Failed to fetch data for ${i}:`, error);
+      return [];
     }
-  });
+  }
+  return allPokemonData;
+  //const list = await getPokemonList(limit);
+  //return list;
+  /* const allPokemonData: (AppPokemon | null)[] = [];
+  const BATCH_SIZE = 10; // Ajusta este número según sea necesario. Un valor entre 5 y 20 suele ser un buen comienzo.
 
-  const results = await Promise.all(pokemonPromises);
-  return (results.filter(p => p !== null) as AppPokemon[]).sort((a,b) => a.id - b.id);
+  for (let i = 0; i < list.length; i += BATCH_SIZE) {
+    const batchItems = list.slice(i, i + BATCH_SIZE);
+
+    // Usamos map para procesar los elementos del lote actual
+    const batchPromises = batchItems.map(async (pItem) => {
+      try {
+        const details = await getPokemonDetails(pItem.name);
+        const speciesId =
+          details.species.url.split("/").filter(Boolean).pop() ||
+          details.id.toString();
+        const speciesDetails = await getPokemonSpeciesDetails(speciesId);
+
+        const imageUrl =
+          details.sprites.other?.["official-artwork"]?.front_default ||
+          details.sprites.front_default ||
+          `https://placehold.co/200x200.png`;
+
+        return {
+          id: details.id,
+          name: capitalizeFirstLetter(details.name),
+          imageUrl: imageUrl,
+          types: details.types.map((t) => t.type.name),
+          generation: formatGenerationName(speciesDetails.generation.name),
+          evolutionChainUrl: speciesDetails.evolution_chain?.url,
+        };
+      } catch (error) {
+        console.error(`Failed to fetch data for ${pItem.name}:`, error);
+        return null;
+      }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    allPokemonData.push(...batchResults);
+
+    // Opcional: Añadir un pequeño retraso entre lotes si sigues experimentando problemas de rate limiting.
+    // if (i + BATCH_SIZE < list.length) {
+    //   await new Promise(resolve => setTimeout(resolve, 200)); // Retraso de 200ms
+    // }
+  }
+
+  return (allPokemonData.filter((p) => p !== null) as AppPokemon[]).sort(
+    (a, b) => a.id - b.id
+  ); */
+}
+
+export async function fetchAllPokemonDetails(
+  name: string
+): Promise<AppPokemon> {
+  const details = await getPokemonDetails(name);
+  const speciesDetails = await getPokemonSpeciesDetails(details.id);
+
+  const imageUrl =
+    details.sprites.other?.["official-artwork"]?.front_default ||
+    details.sprites.front_default ||
+    `https://placehold.co/200x200.png`;
+
+  return {
+    id: speciesDetails.id,
+    name: capitalizeFirstLetter(name),
+    imageUrl: imageUrl,
+    types: details.types.map((t) => t.type.name),
+    generation: formatGenerationName(speciesDetails.generation.name),
+    evolutionChainUrl: speciesDetails.evolution_chain?.url,
+  };
 }
