@@ -52,7 +52,8 @@ export default function HomePageContent({
               onValueChange={(value: string) => {
                 setSearchCriteria("generation");
                 setSearchGeneration(value);
-                setSearchTerm(""); // Clear name search when generation filter is used
+                setSearchTerm(""); 
+                setSearchType("");
                 setEvolutionSearchResults([]);
               }}
             >
@@ -79,7 +80,8 @@ export default function HomePageContent({
               onValueChange={(value: string) => {
                 setSearchCriteria("type");
                 setSearchType(value);
-                setSearchTerm(""); // Clear name search when type filter is used
+                setSearchTerm(""); 
+                setSearchGeneration("");
                 setEvolutionSearchResults([]);
               }}
             >
@@ -117,8 +119,8 @@ export default function HomePageContent({
                 onChange={(e) => {
                   setSearchCriteria("name");
                   setSearchTerm(e.target.value);
-                  setSearchType(""); // Clear type filter when name search is used
-                  setSearchGeneration(""); // Clear generation filter when name search is used
+                  setSearchType(""); 
+                  setSearchGeneration(""); 
                 }}
                 className="pl-10 pr-4 py-2 w-full rounded-lg shadow-inner focus:ring-accent h-10"
                 aria-label="Search Pokemon by name"
@@ -146,6 +148,8 @@ export default function HomePageContent({
                 pokemon={pokemon}
                 currentSearchTerm={debouncedSearchTerm.trim()}
                 currentSearchCriteria={searchCriteria}
+                currentSearchType={searchType}
+                currentSearchGeneration={searchGeneration}
               />
             ))}
           </div>

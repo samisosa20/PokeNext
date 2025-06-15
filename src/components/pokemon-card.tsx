@@ -16,6 +16,8 @@ interface PokemonCardProps {
   pokemon: AppPokemon;
   currentSearchTerm?: string;
   currentSearchCriteria?: string;
+  currentSearchType?: string;
+  currentSearchGeneration?: string;
   isCurrentPokemonInChain?: boolean;
 }
 
@@ -23,19 +25,33 @@ const PokemonCard: React.FC<PokemonCardProps> = ({
   pokemon,
   currentSearchTerm = "",
   currentSearchCriteria = "name",
+  currentSearchType = "",
+  currentSearchGeneration = "",
   isCurrentPokemonInChain = false,
 }) => {
-  const linkHref = `/pokemon/${pokemon?.id}?searchTerm=${encodeURIComponent(
-    currentSearchTerm
-  )}&searchCriteria=${encodeURIComponent(currentSearchCriteria)}`;
+  const queryParams = new URLSearchParams();
+  if (currentSearchTerm) queryParams.set("searchTerm", currentSearchTerm);
+  if (currentSearchCriteria)
+    queryParams.set("searchCriteria", currentSearchCriteria);
+  if (currentSearchType && currentSearchCriteria === "type")
+    queryParams.set("searchType", currentSearchType);
+  if (currentSearchGeneration && currentSearchCriteria === "generation")
+    queryParams.set("searchGeneration", currentSearchGeneration);
+
+  const linkHref = `/pokemon/${pokemon?.id}?${queryParams.toString()}`;
 
   return (
-    <Link href={linkHref} className="block group">
+    <Link
+      href={linkHref}
+      className={cn(
+        "block group",
+        isCurrentPokemonInChain &&
+          "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg"
+      )}
+    >
       <Card
         className={cn(
-          "flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full",
-          isCurrentPokemonInChain &&
-            "ring-2 ring-primary ring-offset-2 ring-offset-background"
+          "flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out animate-subtle-scale-up transform hover:-translate-y-1 h-full"
         )}
       >
         <CardHeader className="p-4 w-full">

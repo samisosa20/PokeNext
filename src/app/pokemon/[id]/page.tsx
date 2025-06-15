@@ -27,6 +27,8 @@ export default function PokemonDetailPageContent() {
     isEvolutionChainLoading,
     backSearchTerm,
     backSearchCriteria,
+    backSearchType,
+    backSearchGeneration,
     backLinkHref,
   } = detailController();
 
@@ -115,7 +117,7 @@ export default function PokemonDetailPageContent() {
               width={400}
               height={400}
               className="object-contain max-w-full max-h-full transition-transform duration-300 hover:scale-105"
-              priority // Prioritize loading image for current pokemon
+              priority 
               unoptimized={pokemon.imageUrl.startsWith("https://placehold.co")}
               data-ai-hint={
                 pokemon.imageUrl.startsWith("https://placehold.co")
@@ -214,6 +216,8 @@ export default function PokemonDetailPageContent() {
                 pokemon={evoPokemon}
                 currentSearchTerm={backSearchTerm}
                 currentSearchCriteria={backSearchCriteria}
+                currentSearchType={backSearchType}
+                currentSearchGeneration={backSearchGeneration}
                 isCurrentPokemonInChain={evoPokemon.id === pokemon.id}
               />
             ))}

@@ -47,8 +47,6 @@ export const detailController = () => {
       if (pokemon && pokemon.name) {
         setIsEvolutionChainLoading(true);
         try {
-          // Use pokemon.name to fetch its evolution chain.
-          // The fetched chain will include the current pokemon as well.
           const chainData = await getPokemonInEvolutionChainByName(
             pokemon.name
           );
@@ -58,7 +56,6 @@ export const detailController = () => {
             "Failed to fetch evolution chain for detail page:",
             error
           );
-          // Optionally set an error state for evolutions here
         } finally {
           setIsEvolutionChainLoading(false);
         }
@@ -72,9 +69,17 @@ export const detailController = () => {
 
   const backSearchTerm = searchParamsHook.get("searchTerm") || "";
   const backSearchCriteria = searchParamsHook.get("searchCriteria") || "name";
-  const backLinkHref = `/?searchTerm=${encodeURIComponent(
-    backSearchTerm
-  )}&searchCriteria=${encodeURIComponent(backSearchCriteria)}`;
+  const backSearchType = searchParamsHook.get("searchType") || "";
+  const backSearchGeneration = searchParamsHook.get("searchGeneration") || "";
+
+  const queryParams = new URLSearchParams();
+  if (backSearchTerm) queryParams.set("searchTerm", backSearchTerm);
+  if (backSearchCriteria) queryParams.set("searchCriteria", backSearchCriteria);
+  if (backSearchType) queryParams.set("searchType", backSearchType);
+  if (backSearchGeneration)
+    queryParams.set("searchGeneration", backSearchGeneration);
+
+  const backLinkHref = `/?${queryParams.toString()}`;
 
   return {
     isLoading,
@@ -84,6 +89,8 @@ export const detailController = () => {
     isEvolutionChainLoading,
     backSearchTerm,
     backSearchCriteria,
+    backSearchType,
+    backSearchGeneration,
     backLinkHref,
   };
 };
