@@ -18,12 +18,11 @@ export default async function HomePage() {
   let initialAllPokemon: AppPokemon[] = [];
   let allTypes: TypesResponse[] = [];
   let allGeneration: GenerationResponse[] = [];
-  const POKEMON_FETCH_LIMIT = 651; // Updated limit
 
   try {
     allTypes = await getTypeList();
     allGeneration = await getGenerationList();
-    initialAllPokemon = await fetchAllPokemonData(POKEMON_FETCH_LIMIT);
+    initialAllPokemon = await fetchAllPokemonData();
   } catch (error) {
     console.error("Failed to fetch initial Pokemon data on server:", error);
   }

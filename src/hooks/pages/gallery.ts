@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -9,7 +8,10 @@ import type {
 } from "@/lib/pokemon-api";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
-import { getPokemonInEvolutionChainByName } from "@/lib/pokemon-api";
+import {
+  fetchAllPokemonFilterData,
+  getPokemonInEvolutionChainByName,
+} from "@/lib/pokemon-api";
 
 export type SearchCriteria = "name" | "type" | "generation" | "id";
 
@@ -35,17 +37,15 @@ export const galleryController = ({
     initialSearchGenerationParam
   );
 
-  let activeInitialCriteria: SearchCriteria = "name";
-  if (initialSearchTermParam) {
-    activeInitialCriteria = "name";
-  } else if (initialSearchTypeParam) {
-    activeInitialCriteria = "type";
-  } else if (initialSearchGenerationParam) {
-    activeInitialCriteria = "generation";
-  }
+  const getInitialSearchCriteria = (): SearchCriteria => {
+    if (initialSearchTypeParam) return "type";
+    if (initialSearchGenerationParam) return "generation";
+    return "name"; // Default to name if searchTerm is present or no other filter
+  };
 
-  const [searchCriteria, setSearchCriteria] =
-    useState<SearchCriteria>(activeInitialCriteria);
+  const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>(
+    getInitialSearchCriteria()
+  );
   const { toast } = useToast();
 
   const [evolutionSearchResults, setEvolutionSearchResults] = useState<
@@ -54,6 +54,11 @@ export const galleryController = ({
   const [isEvolutionSearchLoading, setIsEvolutionSearchLoading] =
     useState(false);
 
+  // Estado para los Pokémon filtrados externamente (tipo o generación)
+  const [externallyFilteredPokemon, setExternallyFilteredPokemon] = useState<
+    AppPokemon[] | null
+  >(null);
+  const [isExternalFilterLoading, setIsExternalFilterLoading] = useState(false);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   useEffect(() => {
@@ -90,17 +95,16 @@ export const galleryController = ({
             setEvolutionSearchResults(uniqueResultsById);
 
             if (uniqueResultsById.length === 0 && trimmedDebouncedSearch) {
-              
             }
           } catch (error: any) {
             console.error("Failed to fetch evolution chain:", error);
             if (!error.message || !error.message.includes("not found")) {
-                 toast({
-                    variant: "destructive",
-                    title: "Evolution Search Error",
-                    description:
-                    error.message || "Could not perform evolution search.",
-                });
+              toast({
+                variant: "destructive",
+                title: "Evolution Search Error",
+                description:
+                  error.message || "Could not perform evolution search.",
+              });
             }
             setEvolutionSearchResults([]);
           } finally {
@@ -119,21 +123,62 @@ export const galleryController = ({
     handleEvolutionSearch();
   }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]);
 
+  // useEffect para cargar Pokémon cuando se filtra por tipo o generación
+  useEffect(() => {
+    const loadExternalData = async () => {
+      if (
+        (searchCriteria === "type" && searchType) ||
+        (searchCriteria === "generation" && searchGeneration)
+      ) {
+        setIsExternalFilterLoading(true);
+        setExternallyFilteredPokemon(null);
+        try {
+          const currentFilterValue =
+            searchCriteria === "type" ? searchType : searchGeneration;
+          // Aseguramos que filterApiType sea 'type' o 'generation' para la llamada a la API
+          const filterApiType = searchCriteria as "type" | "generation";
+
+          if (!currentFilterValue) {
+            setExternallyFilteredPokemon([]);
+            setIsExternalFilterLoading(false);
+            return;
+          }
+
+          const data = await fetchAllPokemonFilterData(
+            filterApiType,
+            currentFilterValue
+          );
+          setExternallyFilteredPokemon(data);
+        } catch (error) {
+          console.error(
+            `Failed to fetch ${searchCriteria}-filtered Pokémon:`,
+            error
+          );
+          toast({
+            variant: "destructive",
+            title: `${
+              searchCriteria.charAt(0).toUpperCase() + searchCriteria.slice(1)
+            } Filter Error`,
+            description: `Could not load Pokémon for the selected ${searchCriteria}.`,
+          });
+          setExternallyFilteredPokemon([]);
+        } finally {
+          setIsExternalFilterLoading(false);
+        }
+      } else {
+        setExternallyFilteredPokemon(null); // Limpiar si no se filtra por tipo/gen
+      }
+    };
+    loadExternalData();
+  }, [searchCriteria, searchGeneration, toast]);
+
   const regularFilteredPokemon = useMemo(() => {
     const normalizedSearch = debouncedSearchTerm.toLowerCase().trim();
-
-    if (searchCriteria === "type" && searchType) {
-      return allPokemon.filter((pokemon) =>
-        pokemon.types
-          .map((type) => type.toLowerCase())
-          .includes(searchType.toLowerCase())
-      );
-    } else if (searchCriteria === "generation" && searchGeneration) {
-      return allPokemon.filter((pokemon) =>
-        pokemon.generation
-          .toLowerCase()
-          .includes(searchGeneration.toLowerCase())
-      );
+    if (
+      (searchCriteria === "type" && searchType) ||
+      (searchCriteria === "generation" && searchGeneration)
+    ) {
+      return externallyFilteredPokemon || [];
     } else if (searchCriteria === "name") {
       if (!normalizedSearch) return allPokemon;
       return allPokemon.filter((pokemon) =>
@@ -147,6 +192,7 @@ export const galleryController = ({
     searchCriteria,
     searchType,
     searchGeneration,
+    externallyFilteredPokemon,
   ]);
 
   const pokemonToDisplay = useMemo(() => {
@@ -169,7 +215,9 @@ export const galleryController = ({
   ]);
 
   const currentOverallLoadingState =
-    searchCriteria === "name" && isEvolutionSearchLoading;
+    (searchCriteria === "name" && isEvolutionSearchLoading) ||
+    ((searchCriteria === "type" || searchCriteria === "generation") &&
+      isExternalFilterLoading);
 
   const handleReset = () => {
     setSearchTerm("");
@@ -177,6 +225,7 @@ export const galleryController = ({
     setSearchGeneration("");
     setSearchCriteria("name");
     setEvolutionSearchResults([]);
+    setExternallyFilteredPokemon(null);
   };
 
   const noResultsMessageText = useMemo(() => {
@@ -192,11 +241,23 @@ export const galleryController = ({
     if (searchCriteria === "name" && trimmedSearch) {
       return `No Pokémon found matching "${searchTerm}". Try checking the spelling or a different name.`;
     }
-    if (searchCriteria === "type" && searchType) {
+    if (
+      searchCriteria === "type" &&
+      searchType &&
+      !isExternalFilterLoading &&
+      externallyFilteredPokemon &&
+      externallyFilteredPokemon.length === 0
+    ) {
       return `No Pokémon found of type "${searchType}".`;
     }
-    if (searchCriteria === "generation" && searchGeneration) {
-      return `No Pokémon found in "${searchGeneration}".`;
+    if (
+      searchCriteria === "generation" &&
+      searchGeneration &&
+      !isExternalFilterLoading &&
+      externallyFilteredPokemon &&
+      externallyFilteredPokemon.length === 0
+    ) {
+      return `No Pokémon found in generation "${searchGeneration}".`;
     }
 
     if (trimmedSearch || searchType || searchGeneration) {
@@ -212,6 +273,8 @@ export const galleryController = ({
     debouncedSearchTerm,
     pokemonToDisplay.length,
     currentOverallLoadingState,
+    isExternalFilterLoading,
+    externallyFilteredPokemon,
   ]);
 
   return {

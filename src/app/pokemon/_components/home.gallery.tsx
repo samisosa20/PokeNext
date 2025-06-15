@@ -1,4 +1,3 @@
-
 "use client";
 import { Search, RotateCcw, ListFilter, FilterX } from "lucide-react";
 
@@ -52,7 +51,7 @@ export default function HomePageContent({
               onValueChange={(value: string) => {
                 setSearchCriteria("generation");
                 setSearchGeneration(value);
-                setSearchTerm(""); 
+                setSearchTerm("");
                 setSearchType("");
                 setEvolutionSearchResults([]);
               }}
@@ -62,12 +61,12 @@ export default function HomePageContent({
                 aria-label="Filter by generation"
               >
                 <ListFilter className="h-4 w-4 mr-1 text-muted-foreground" />
-                <SelectValue placeholder="By Generation" />
+                <SelectValue placeholder="Generation" />
               </SelectTrigger>
               <SelectContent>
                 {allGeneration.map((generation, index) => (
                   <SelectItem
-                    value={generation.name}
+                    value={generation.id}
                     key={`${index}-${generation.name}`}
                   >
                     {generation.name}
@@ -80,33 +79,33 @@ export default function HomePageContent({
               onValueChange={(value: string) => {
                 setSearchCriteria("type");
                 setSearchType(value);
-                setSearchTerm(""); 
+                setSearchTerm("");
                 setSearchGeneration("");
                 setEvolutionSearchResults([]);
               }}
             >
               <SelectTrigger
                 className="w-full sm:w-[130px] h-10 shadow-inner focus:ring-accent mb-2 sm:mb-0"
-                aria-label="Filter by type"
+                aria-label="Type"
               >
                 <ListFilter className="h-4 w-4 mr-1 text-muted-foreground" />
                 <SelectValue placeholder="By Type" />
               </SelectTrigger>
               <SelectContent>
                 {allTypes.map((type, index) => (
-                  <SelectItem value={type.name} key={`${index}-${type.name}`}>
+                  <SelectItem value={type.id} key={`${index}-${type.name}`}>
                     {type.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-             <Button 
-                variant="outline" 
-                onClick={handleReset} 
-                className="h-10 mb-2 sm:mb-0"
-                aria-label="Clear all filters and search term"
-                disabled={!searchTerm && !searchType && !searchGeneration}
-              >
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              className="h-10 mb-2 sm:mb-0"
+              aria-label="Clear all filters and search term"
+              disabled={!searchTerm && !searchType && !searchGeneration}
+            >
               <FilterX className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Clear</span>
             </Button>
@@ -119,8 +118,8 @@ export default function HomePageContent({
                 onChange={(e) => {
                   setSearchCriteria("name");
                   setSearchTerm(e.target.value);
-                  setSearchType(""); 
-                  setSearchGeneration(""); 
+                  setSearchType("");
+                  setSearchGeneration("");
                 }}
                 className="pl-10 pr-4 py-2 w-full rounded-lg shadow-inner focus:ring-accent h-10"
                 aria-label="Search Pokemon by name"
@@ -166,7 +165,10 @@ export default function HomePageContent({
               <RotateCcw className="mr-2 h-4 w-4" /> Reset Filters
             </Button>
           </div>
-        ) : !debouncedSearchTerm.trim() && allPokemon.length === 0 && !searchType && !searchGeneration ? (
+        ) : !debouncedSearchTerm.trim() &&
+          allPokemon.length === 0 &&
+          !searchType &&
+          !searchGeneration ? (
           <div className="text-center py-10">
             <p className="text-muted-foreground mb-4">
               No Pokémon data loaded. This might be an issue with the initial
@@ -175,16 +177,17 @@ export default function HomePageContent({
           </div>
         ) : null}
 
-        {!currentOverallLoadingState && !debouncedSearchTerm.trim() && !searchType && !searchGeneration &&
+        {!currentOverallLoadingState &&
+          !debouncedSearchTerm.trim() &&
+          !searchType &&
+          !searchGeneration &&
           allPokemon.length > 0 &&
           pokemonToDisplay.length === allPokemon.length && (
             <div className="text-center py-10 text-muted-foreground">
               <p className="mb-1">
                 Showing all {allPokemon.length} loaded Pokémon.
               </p>
-              <p>
-                Use the filters or search bar to find specific Pokémon.
-              </p>
+              <p>Use the filters or search bar to find specific Pokémon.</p>
             </div>
           )}
       </main>

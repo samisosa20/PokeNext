@@ -19,11 +19,13 @@ export const detailController = () => {
   const [isEvolutionChainLoading, setIsEvolutionChainLoading] = useState(false);
 
   useEffect(() => {
+    // Si no hay currentPokemonId, reseteamos estados y salimos.
     if (currentPokemonId) {
       const loadPokemonDetails = async () => {
         setIsLoading(true);
         setError(null);
-        setEvolutionChain([]);
+        setPokemon(null); // Limpiar datos del Pokémon anterior
+        setEvolutionChain([]); // Limpiar cadena de evolución anterior
         try {
           const data = await fetchAppPokemonDetails(currentPokemonId);
           if (data) {
@@ -34,18 +36,27 @@ export const detailController = () => {
         } catch (err) {
           console.error("Failed to fetch Pokémon details:", err);
           setError("Failed to load Pokémon details. Please try again.");
+          setPokemon(null); // Asegurar que pokemon sea null en caso de error
         } finally {
           setIsLoading(false);
         }
       };
       loadPokemonDetails();
+    } else {
+      // Manejar el caso donde currentPokemonId no está disponible
+      setIsLoading(false);
+      setError("No Pokémon ID specified.");
+      setPokemon(null);
+      setEvolutionChain([]);
     }
   }, [currentPokemonId]);
 
   useEffect(() => {
     const fetchEvolutions = async () => {
-      if (pokemon && pokemon.name) {
+      // Solo intentar buscar evoluciones si tenemos un Pokémon con nombre.
+      if (pokemon?.name) {
         setIsEvolutionChainLoading(true);
+        setEvolutionChain([]); // Limpiar cadena anterior antes de buscar una nueva
         try {
           const chainData = await getPokemonInEvolutionChainByName(
             pokemon.name
@@ -56,16 +67,20 @@ export const detailController = () => {
             "Failed to fetch evolution chain for detail page:",
             error
           );
+          // Opcionalmente, podrías establecer un estado de error específico para la cadena de evolución aquí.
+          setEvolutionChain([]); // Asegurar que la cadena esté vacía en caso de error
         } finally {
           setIsEvolutionChainLoading(false);
         }
+      } else {
+        // Si no hay Pokémon (o no tiene nombre), asegurarse de que la cadena de evolución esté vacía.
+        setEvolutionChain([]);
+        setIsEvolutionChainLoading(false); // Y que no esté cargando.
       }
     };
-
-    if (pokemon && !isLoading) {
-      fetchEvolutions();
-    }
-  }, [pokemon, isLoading]);
+    fetchEvolutions();
+  }, [pokemon]); // Depender directamente del objeto pokemon.
+  // Si pokemon cambia (o se vuelve null), este efecto se re-ejecutará.
 
   const backSearchTerm = searchParamsHook.get("searchTerm") || "";
   const backSearchCriteria = searchParamsHook.get("searchCriteria") || "name";
