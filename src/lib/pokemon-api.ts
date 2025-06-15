@@ -1,3 +1,4 @@
+
 export interface PokemonListItem {
   name: string;
   url: string;
@@ -309,83 +310,55 @@ export async function getPokemonInEvolutionChainByName(
 export async function fetchAllPokemonData(
   limit: number = 151
 ): Promise<AppPokemon[]> {
-  const allPokemonData: AppPokemon[] = [];
+  const pokemonPromises: Promise<AppPokemon | null>[] = [];
+
   for (let i = 1; i <= limit; i++) {
-    try {
-      const details = await getPokemonDetails(i);
-      const speciesId =
-        details.species.url.split("/").filter(Boolean).pop() ||
-        details.id.toString();
-      const speciesDetails = await getPokemonSpeciesDetails(speciesId);
+    pokemonPromises.push(
+      (async () => {
+        try {
+          const details = await getPokemonDetails(i);
+          const speciesId =
+            details.species.url.split("/").filter(Boolean).pop() ||
+            details.id.toString();
+          const speciesDetails = await getPokemonSpeciesDetails(speciesId);
 
-      const imageUrl =
-        details.sprites.other?.["official-artwork"]?.front_default ||
-        details.sprites.front_default ||
-        `https://placehold.co/200x200.png`;
+          const imageUrl =
+            details.sprites.other?.["official-artwork"]?.front_default ||
+            details.sprites.front_default ||
+            `https://placehold.co/200x200.png`;
 
-      allPokemonData.push({
-        id: details.id,
-        name: capitalizeFirstLetter(details.name),
-        imageUrl: imageUrl,
-        types: details.types.map((t) => t.type.name),
-        generation: formatGenerationName(speciesDetails.generation.name),
-        evolutionChainUrl: speciesDetails.evolution_chain?.url,
-      });
-    } catch (error) {
-      console.error(`Failed to fetch data for ${i}:`, error);
-      return [];
+          return {
+            id: details.id,
+            name: capitalizeFirstLetter(details.name),
+            imageUrl: imageUrl,
+            types: details.types.map((t) => t.type.name),
+            generation: formatGenerationName(speciesDetails.generation.name),
+            evolutionChainUrl: speciesDetails.evolution_chain?.url,
+          };
+        } catch (error) {
+          console.error(`Failed to fetch data for Pokémon ID ${i}:`, error);
+          return null; // Return null for failed fetches, so Promise.allSettled can handle it
+        }
+      })()
+    );
+  }
+
+  const results = await Promise.allSettled(pokemonPromises);
+  const allPokemonData: AppPokemon[] = [];
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled" && result.value) {
+      allPokemonData.push(result.value);
+    } else if (result.status === "rejected") {
+      // Error is already logged in the async IIFE above for individual Pokémon
+      // console.error(`Promise for Pokémon ID ${index + 1} was rejected:`, result.reason);
     }
-  }
-  return allPokemonData;
-  //const list = await getPokemonList(limit);
-  //return list;
-  /* const allPokemonData: (AppPokemon | null)[] = [];
-  const BATCH_SIZE = 10; // Ajusta este número según sea necesario. Un valor entre 5 y 20 suele ser un buen comienzo.
+  });
 
-  for (let i = 0; i < list.length; i += BATCH_SIZE) {
-    const batchItems = list.slice(i, i + BATCH_SIZE);
-
-    // Usamos map para procesar los elementos del lote actual
-    const batchPromises = batchItems.map(async (pItem) => {
-      try {
-        const details = await getPokemonDetails(pItem.name);
-        const speciesId =
-          details.species.url.split("/").filter(Boolean).pop() ||
-          details.id.toString();
-        const speciesDetails = await getPokemonSpeciesDetails(speciesId);
-
-        const imageUrl =
-          details.sprites.other?.["official-artwork"]?.front_default ||
-          details.sprites.front_default ||
-          `https://placehold.co/200x200.png`;
-
-        return {
-          id: details.id,
-          name: capitalizeFirstLetter(details.name),
-          imageUrl: imageUrl,
-          types: details.types.map((t) => t.type.name),
-          generation: formatGenerationName(speciesDetails.generation.name),
-          evolutionChainUrl: speciesDetails.evolution_chain?.url,
-        };
-      } catch (error) {
-        console.error(`Failed to fetch data for ${pItem.name}:`, error);
-        return null;
-      }
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    allPokemonData.push(...batchResults);
-
-    // Opcional: Añadir un pequeño retraso entre lotes si sigues experimentando problemas de rate limiting.
-    // if (i + BATCH_SIZE < list.length) {
-    //   await new Promise(resolve => setTimeout(resolve, 200)); // Retraso de 200ms
-    // }
-  }
-
-  return (allPokemonData.filter((p) => p !== null) as AppPokemon[]).sort(
-    (a, b) => a.id - b.id
-  ); */
+  // Sort by ID as promises might resolve out of order and successful fetches are pushed
+  return allPokemonData.sort((a, b) => a.id - b.id);
 }
+
 
 export async function fetchAllPokemonDetails(
   name: string
@@ -407,3 +380,5 @@ export async function fetchAllPokemonDetails(
     evolutionChainUrl: speciesDetails.evolution_chain?.url,
   };
 }
+
+    
