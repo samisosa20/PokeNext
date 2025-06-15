@@ -1,5 +1,6 @@
+
 "use client";
-import { Search, RotateCcw, ListFilter } from "lucide-react";
+import { Search, RotateCcw, ListFilter, FilterX } from "lucide-react";
 
 import PokemonCard from "@/components/pokemon-card";
 import PokemonSkeletonCard from "@/components/pokemon-skeleton-card";
@@ -41,25 +42,26 @@ export default function HomePageContent({
   return (
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-        <div className="container flex h-20 sm:h-16 max-w-screen-2xl items-center justify-between mx-auto px-4 sm:px-6 lg:px-8 flex-wrap sm:flex-nowrap py-2 sm:py-0">
-          <h1 className="text-2xl sm:text-3xl font-headline font-bold text-primary w-full sm:w-auto text-center sm:text-left mb-2 sm:mb-0">
+        <div className="container flex h-auto sm:h-20 max-w-screen-2xl items-center justify-between mx-auto px-4 sm:px-6 lg:px-8 flex-wrap sm:flex-nowrap py-3 sm:py-0">
+          <h1 className="text-2xl sm:text-3xl font-headline font-bold text-primary w-full sm:w-auto text-center sm:text-left mb-3 sm:mb-0">
             PokeNext Gallery
           </h1>
-          <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-end">
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-end flex-wrap">
             <Select
               value={searchGeneration}
               onValueChange={(value: string) => {
                 setSearchCriteria("generation");
                 setSearchGeneration(value);
+                setSearchTerm(""); // Clear name search when generation filter is used
                 setEvolutionSearchResults([]);
               }}
             >
               <SelectTrigger
-                className="w-[130px] h-10 shadow-inner focus:ring-accent"
-                aria-label="Search criteria"
+                className="w-full sm:w-[150px] h-10 shadow-inner focus:ring-accent mb-2 sm:mb-0"
+                aria-label="Filter by generation"
               >
                 <ListFilter className="h-4 w-4 mr-1 text-muted-foreground" />
-                <SelectValue placeholder="Filter by generation" />
+                <SelectValue placeholder="By Generation" />
               </SelectTrigger>
               <SelectContent>
                 {allGeneration.map((generation, index) => (
@@ -77,15 +79,16 @@ export default function HomePageContent({
               onValueChange={(value: string) => {
                 setSearchCriteria("type");
                 setSearchType(value);
+                setSearchTerm(""); // Clear name search when type filter is used
                 setEvolutionSearchResults([]);
               }}
             >
               <SelectTrigger
-                className="w-[130px] h-10 shadow-inner focus:ring-accent"
-                aria-label="Search criteria"
+                className="w-full sm:w-[130px] h-10 shadow-inner focus:ring-accent mb-2 sm:mb-0"
+                aria-label="Filter by type"
               >
                 <ListFilter className="h-4 w-4 mr-1 text-muted-foreground" />
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue placeholder="By Type" />
               </SelectTrigger>
               <SelectContent>
                 {allTypes.map((type, index) => (
@@ -95,18 +98,30 @@ export default function HomePageContent({
                 ))}
               </SelectContent>
             </Select>
-            <div className="relative flex-grow max-w-xs sm:max-w-sm lg:max-w-md">
+             <Button 
+                variant="outline" 
+                onClick={handleReset} 
+                className="h-10 mb-2 sm:mb-0"
+                aria-label="Clear all filters and search term"
+                disabled={!searchTerm && !searchType && !searchGeneration}
+              >
+              <FilterX className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Clear</span>
+            </Button>
+            <div className="relative flex-grow w-full sm:w-auto sm:max-w-xs lg:max-w-md mb-2 sm:mb-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Name (e.g., Pikachu for evolutions)"
+                placeholder="Search by name..."
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchCriteria("name");
                   setSearchTerm(e.target.value);
+                  setSearchType(""); // Clear type filter when name search is used
+                  setSearchGeneration(""); // Clear generation filter when name search is used
                 }}
                 className="pl-10 pr-4 py-2 w-full rounded-lg shadow-inner focus:ring-accent h-10"
-                aria-label="Search Pokemon"
+                aria-label="Search Pokemon by name"
               />
             </div>
           </div>
@@ -127,14 +142,14 @@ export default function HomePageContent({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {pokemonToDisplay.map((pokemon, index) => (
               <PokemonCard
-                key={`${index}-${pokemon.name}`}
+                key={`${index}-${pokemon.name}-${pokemon.id}`}
                 pokemon={pokemon}
                 currentSearchTerm={debouncedSearchTerm.trim()}
                 currentSearchCriteria={searchCriteria}
               />
             ))}
           </div>
-        ) : debouncedSearchTerm.trim() && noResultsMessageText ? (
+        ) : noResultsMessageText ? (
           <div className="text-center py-10">
             <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-xl font-semibold text-foreground mb-2 font-headline">
@@ -144,10 +159,10 @@ export default function HomePageContent({
               {noResultsMessageText}
             </p>
             <Button onClick={handleReset} variant="outline">
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset Search
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset Filters
             </Button>
           </div>
-        ) : !debouncedSearchTerm.trim() && allPokemon.length === 0 ? (
+        ) : !debouncedSearchTerm.trim() && allPokemon.length === 0 && !searchType && !searchGeneration ? (
           <div className="text-center py-10">
             <p className="text-muted-foreground mb-4">
               No Pokémon data loaded. This might be an issue with the initial
@@ -156,7 +171,7 @@ export default function HomePageContent({
           </div>
         ) : null}
 
-        {!debouncedSearchTerm.trim() &&
+        {!currentOverallLoadingState && !debouncedSearchTerm.trim() && !searchType && !searchGeneration &&
           allPokemon.length > 0 &&
           pokemonToDisplay.length === allPokemon.length && (
             <div className="text-center py-10 text-muted-foreground">
@@ -164,8 +179,7 @@ export default function HomePageContent({
                 Showing all {allPokemon.length} loaded Pokémon.
               </p>
               <p>
-                Use the search bar to find Pokémon by name (for evolutions),
-                type, generation, or ID.
+                Use the filters or search bar to find specific Pokémon.
               </p>
             </div>
           )}

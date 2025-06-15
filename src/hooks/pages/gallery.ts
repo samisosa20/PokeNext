@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -58,34 +59,39 @@ export const galleryController = ({
           setIsEvolutionSearchLoading(true);
           setEvolutionSearchResults([]);
           try {
-            for (const pokemon of potentialMatchInAllPokemons) {
-              const results = await getPokemonInEvolutionChainByName(
-                pokemon.name
-              );
+            // Using a Set to store unique Pokémon names to avoid redundant fetches
+            const uniquePokemonNamesToFetchEvolutionsFor = new Set<string>();
+            potentialMatchInAllPokemons.forEach(p => uniquePokemonNamesToFetchEvolutionsFor.add(p.name));
 
-              setEvolutionSearchResults((prevEvolution) => {
-                const combinedResults = [...prevEvolution, ...results];
-                // Filtrar para mantener solo Pokémon únicos por ID
-                const uniqueResults = combinedResults.filter(
-                  (pokemon, index, self) =>
-                    index === self.findIndex((p) => p.id === pokemon.id)
-                );
-                return uniqueResults;
+            const allEvolutionResults: AppPokemon[] = [];
+            for (const pokemonName of uniquePokemonNamesToFetchEvolutionsFor) {
+              const results = await getPokemonInEvolutionChainByName(
+                pokemonName
+              );
+              allEvolutionResults.push(...results);
+            }
+            
+            // Filter for unique Pokémon by ID after all fetches are done
+            const uniqueResultsById = allEvolutionResults.filter(
+              (pokemon, index, self) =>
+                index === self.findIndex((p) => p.id === pokemon.id)
+            );
+            setEvolutionSearchResults(uniqueResultsById);
+
+            if (uniqueResultsById.length === 0 && trimmedDebouncedSearch) {
+              toast({
+                title: "No Pokémon Evolutions Found",
+                description: `No evolutions found for "${trimmedDebouncedSearch}". It might be a unique Pokémon or its data is unavailable.`,
               });
-              if (results.length === 0 && trimmedDebouncedSearch) {
-                toast({
-                  title: "No Pokémon Evolutions Found",
-                  description: `No evolutions found for "${trimmedDebouncedSearch}". It might be a unique Pokémon or its data is unavailable.`,
-                });
-              }
             }
           } catch (error: any) {
             console.error("Failed to fetch evolution chain:", error);
             if (error.message && error.message.includes("not found")) {
-              toast({
-                title: "Evolution Search Error",
-                description: `Could not find Pokémon "${trimmedDebouncedSearch}" to get evolutions.`,
-              });
+              // This toast might be too noisy if a user is just typing. Consider if needed.
+              // toast({
+              //   title: "Evolution Search Info",
+              //   description: `Could not find Pokémon "${trimmedDebouncedSearch}" to get evolutions.`,
+              // });
             } else {
               toast({
                 variant: "destructive",
@@ -111,31 +117,28 @@ export const galleryController = ({
     };
 
     handleEvolutionSearch();
-  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]); // Added allPokemon dependency
+  }, [debouncedSearchTerm, searchCriteria, toast, allPokemon]);
 
   const regularFilteredPokemon = useMemo(() => {
     const normalizedSearch = debouncedSearchTerm.toLowerCase().trim();
 
-    if (!normalizedSearch && searchCriteria === "type") {
-      return allPokemon.filter((pokemon) =>
+    if (searchCriteria === "type" && searchType) {
+       return allPokemon.filter((pokemon) =>
         pokemon.types
           .map((type) => type.toLowerCase())
           .includes(searchType.toLowerCase())
       );
-    } else if (!normalizedSearch && searchCriteria === "generation") {
-      return allPokemon.filter((pokemon) =>
-        pokemon.generation.includes(searchGeneration)
+    } else if (searchCriteria === "generation" && searchGeneration) {
+       return allPokemon.filter((pokemon) =>
+        pokemon.generation.toLowerCase().includes(searchGeneration.toLowerCase())
       );
-    } else if (!normalizedSearch && searchCriteria === "name") {
-      return allPokemon;
+    } else if (searchCriteria === "name") {
+      if (!normalizedSearch) return allPokemon; // Show all if search term is empty for name criteria
+      return allPokemon.filter((pokemon) =>
+        pokemon.name.toLowerCase().includes(normalizedSearch)
+      );
     }
-    setSearchType("");
-    setSearchGeneration("");
-    return allPokemon.filter((pokemon) => {
-      if (searchCriteria === "name") {
-        return pokemon.name.toLowerCase().includes(normalizedSearch);
-      }
-    });
+    return allPokemon; // Default to all Pokemon if no specific criteria match or no search term for name
   }, [
     allPokemon,
     debouncedSearchTerm,
@@ -155,7 +158,8 @@ export const galleryController = ({
     ) {
       return evolutionSearchResults;
     }
-    // If evolution search is loading for a name search, or no evolution results yet, show regular filtered results (which handles partial name matches)
+    // If evolution search is loading for a name search, show regular filtered (which shows partial name matches)
+    // or if evolution search is done but yielded no results, also show regular filtered.
     return regularFilteredPokemon;
   }, [
     searchCriteria,
@@ -165,12 +169,13 @@ export const galleryController = ({
     regularFilteredPokemon,
   ]);
 
-  // Overall loading state now primarily reflects evolution search loading
   const currentOverallLoadingState =
     searchCriteria === "name" && isEvolutionSearchLoading;
 
   const handleReset = () => {
     setSearchTerm("");
+    setSearchType("");
+    setSearchGeneration("");
     setSearchCriteria("name");
     setEvolutionSearchResults([]);
   };
@@ -178,39 +183,42 @@ export const galleryController = ({
   const noResultsMessageText = useMemo(() => {
     const trimmedSearch = debouncedSearchTerm.trim();
     if (
-      !trimmedSearch ||
-      pokemonToDisplay.length > 0 ||
-      currentOverallLoadingState
-    )
+      currentOverallLoadingState || // If loading, don't show "no results" yet
+      pokemonToDisplay.length > 0 // If there are results, don't show "no results"
+    ) {
       return "";
+    }
 
-    if (searchCriteria === "name") {
-      const potentialMatchInAllPokemon = allPokemon.find(
-        (p) => p.name.toLowerCase() === trimmedSearch.toLowerCase()
-      );
-      // Message when evolution search attempted but yielded no results for a full name match
-      if (
-        potentialMatchInAllPokemon &&
-        evolutionSearchResults.length === 0 &&
-        !isEvolutionSearchLoading &&
-        trimmedSearch.length > 2
-      ) {
-        return `No evolutions found for "${searchTerm}". It might be a unique Pokémon or its evolution data isn't available. Displaying original Pokémon if found.`;
-      }
-      // Generic no match for name
+    // Only show "no results" if not loading AND there are no items to display AND a search/filter is active
+    if (!trimmedSearch && !searchType && !searchGeneration) {
+        return ""; // No active search/filter, so don't show "no results"
+    }
+
+    if (searchCriteria === "name" && trimmedSearch) {
+      // Message when evolution search attempted but yielded no results OR simple name search yielded no results
       return `No Pokémon found matching "${searchTerm}". Try checking the spelling or a different name.`;
     }
-    // Generic no match for other criteria
-    return `Your search for "${searchTerm}" using filter "${searchCriteria}" did not match any Pokémon. Try a different term or criteria.`;
+    if (searchCriteria === "type" && searchType) {
+        return `No Pokémon found of type "${searchType}".`;
+    }
+    if (searchCriteria === "generation" && searchGeneration) {
+        return `No Pokémon found in "${searchGeneration}".`;
+    }
+    
+    // Fallback for any other case where filters are active but no results
+    if (trimmedSearch || searchType || searchGeneration) {
+        return `Your search or filter criteria did not match any Pokémon.`;
+    }
+
+    return ""; // Default to no message
   }, [
     searchCriteria,
     searchTerm,
+    searchType,
+    searchGeneration,
     debouncedSearchTerm,
     pokemonToDisplay.length,
     currentOverallLoadingState,
-    evolutionSearchResults.length,
-    isEvolutionSearchLoading,
-    allPokemon,
   ]);
 
   return {
