@@ -53,19 +53,11 @@ Sigue estos pasos para configurar y ejecutar el proyecto en tu entorno local:
 
     ```bash
     npm install
-    # o
-    yarn install
-    # o
-    pnpm install
     ```
 
 3.  **Ejecutar el servidor de desarrollo:**
     ```bash
     npm run dev
-    # o
-    yarn dev
-    # o
-    pnpm dev
     ```
     La aplicación estará disponible en `http://localhost:9002`.
 
